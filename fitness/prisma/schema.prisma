@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  password      String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  profile       UserProfile?
+  nutritionPlan NutritionPlan?
+  cyclePlan     CyclePlan?
+  checkIns      CheckIn[]
+}
+
+model UserProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  weight         Float
+  height         Float
+  age            Int
+  gender         Gender
+  goal           Goal
+  activityLevel  ActivityLevel
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NutritionPlan {
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  mode            NutritionMode   @default(PERCENTAGE)
+  
+  highCarbsCarbs  Float           @default(50)
+  highCarbsProtein Float          @default(25)
+  highCarbsFat    Float           @default(25)
+  
+  mediumCarbsCarbs Float          @default(40)
+  mediumCarbsProtein Float        @default(30)
+  mediumCarbsFat  Float           @default(30)
+  
+  lowCarbsCarbs   Float           @default(20)
+  lowCarbsProtein Float           @default(40)
+  lowCarbsFat     Float           @default(40)
+  
+  highCarbsCarbsPerKg   Float    @default(4)
+  highCarbsProteinPerKg Float    @default(2.2)
+  highCarbsFatPerKg     Float    @default(0.8)
+  
+  mediumCarbsCarbsPerKg Float   @default(3)
+  mediumCarbsProteinPerKg Float @default(2.2)
+  mediumCarbsFatPerKg   Float    @default(0.8)
+  
+  lowCarbsCarbsPerKg    Float    @default(1)
+  lowCarbsProteinPerKg  Float    @default(2.2)
+  lowCarbsFatPerKg      Float    @default(1)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CyclePlan {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  monday          CarbDayType @default(HIGH)
+  tuesday         CarbDayType @default(LOW)
+  wednesday       CarbDayType @default(MEDIUM)
+  thursday        CarbDayType @default(LOW)
+  friday          CarbDayType @default(MEDIUM)
+  saturday        CarbDayType @default(LOW)
+  sunday          CarbDayType @default(LOW)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CheckIn {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @db.Date
+  completed       Boolean  @default(false)
+  actualCarbs     Float?
+  actualProtein   Float?
+  actualFat       Float?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Goal {
+  WEIGHT_LOSS
+  MAINTENANCE
+  MUSCLE_GAIN
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHTLY_ACTIVE
+  MODERATELY_ACTIVE
+  VERY_ACTIVE
+  EXTRA_ACTIVE
+}
+
+enum NutritionMode {
+  PERCENTAGE
+  WEIGHT
+}
+
+enum CarbDayType {
+  HIGH
+  MEDIUM
+  LOW
+}
