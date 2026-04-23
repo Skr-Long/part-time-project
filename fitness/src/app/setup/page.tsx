@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
@@ -54,17 +54,21 @@ export default function SetupPage() {
   const goal = watch('goal')
   const activityLevel = watch('activityLevel')
 
+  useEffect(() => {
+    if (status === 'loading') return
+
+    if (status === 'unauthenticated') {
+      router.push('/login')
+      return
+    }
+  }, [status, router])
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
       </div>
     )
-  }
-
-  if (status === 'unauthenticated') {
-    router.push('/login')
-    return null
   }
 
   const onSubmit = async (data: SetupFormData) => {
