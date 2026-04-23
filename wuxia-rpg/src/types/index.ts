@@ -12,6 +12,20 @@ export interface Attributes {
   luck: number;         // -5 to 10, encounter probability
 }
 
+// --- Combat Stats ---
+export interface CombatStats {
+  maxHP: number;
+  currentHP: number;
+  maxEnergy: number;    // 内功上限
+  currentEnergy: number; // 当前内功
+  attack: number;
+  defense: number;
+  speed: number;
+  critChance: number;   // 暴击率 0-100
+}
+
+export type CombatStatsType = Omit<CombatStats, 'currentHP' | 'currentEnergy'>;
+
 // --- Item Effects ---
 export interface ItemEffects {
   attackBonus?: number;
@@ -85,8 +99,7 @@ export interface PlayerState {
   expToNext: number;
   gold: number; // stored as copper
   attributes: Attributes;
-  currentHP: number;
-  maxHP: number;
+  combatStats: CombatStats;
   inventory: InventoryItem[];
   equipment: EquipmentSlots;
   professions: PlayerProfessions;
@@ -147,10 +160,15 @@ export interface Enemy {
   descriptionCN: string;
   level: number;
   zone: number;
-  baseHP: number;
-  baseAttack: number;
-  baseDefense: number;
-  baseSpeed: number;
+  attributes: {
+    constitution: number;
+    strength: number;
+    physique: number;
+    agility: number;
+    insight: number;
+    luck: number;
+  };
+  maxEnergy: number;
   expReward: number;
   goldReward: { min: number; max: number };
   lootTable: LootEntry[];

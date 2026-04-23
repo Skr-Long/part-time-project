@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameSelector, useGameDispatch } from '../hooks/useGame';
 import { HPBar } from '../components/ui/HPBar';
 import { getMartialArt } from '../data/martialArts';
+import type { Enemy } from '../types';
 
 interface CombatSkill {
   id: string;
@@ -11,6 +12,18 @@ interface CombatSkill {
   damage: number;
   heal?: number;
   description: string;
+}
+
+// Compute enemy combat stats from attributes
+function computeEnemyStats(enemy: Enemy) {
+  const { attributes, level } = enemy;
+  return {
+    maxHP: 100 + (attributes.constitution - 1) * 20 + level * 5,
+    attack: 10 + (attributes.strength - 1) * 5 + level * 2,
+    defense: 5 + (attributes.physique - 1) * 3 + level * 1,
+    speed: 10 + (attributes.agility - 1) * 2 + level * 1,
+    maxEnergy: 50 + level * 10 + attributes.insight * 5,
+  };
 }
 
 export function CombatScreen() {
@@ -60,6 +73,8 @@ export function CombatScreen() {
   const executePlayerAction = useCallback((action: { type: 'attack' | 'skill' | 'defend'; skill?: CombatSkill }) => {
     if (!enemy) return;
 
+    const enemyStats = computeEnemyStats(enemy);
+
     if (action.type === 'defend') {
       setIsDefending(true);
       dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: '🛡️ 你进入防御姿态！', damage: 0 } });
@@ -71,10 +86,9 @@ export function CombatScreen() {
       ? player.attributes.strength + (player.equipment.weapon?.effects.attackBonus || 0)
       : action.skill?.damage || 0;
 
-    const defense = enemy.baseDefense;
     const critChance = (player.attributes.luck + 5) / 100;
     const isCrit = Math.random() < critChance;
-    let damage = Math.max(1, baseDamage - defense);
+    let damage = Math.max(1, baseDamage - enemyStats.defense);
     if (isCrit) damage = Math.floor(damage * 1.5);
 
     if (action.type === 'skill' && action.skill) {
@@ -89,7 +103,8 @@ export function CombatScreen() {
   // 执行敌人攻击
   const executeEnemyAttack = useCallback(() => {
     if (!enemy) return;
-    const baseDamage = enemy.baseAttack;
+    const enemyStats = computeEnemyStats(enemy);
+    const baseDamage = enemyStats.attack;
     const defense = player.attributes.physique + (player.equipment.armor?.effects.defenseBonus || 0);
     let damage = Math.max(1, baseDamage - Math.floor(defense / 2));
     if (isDefending) damage = Math.floor(damage * 0.5);
@@ -102,9 +117,10 @@ export function CombatScreen() {
   useEffect(() => {
     if (!enemy) return;
 
+    const enemyStats = computeEnemyStats(enemy);
     const tickRate = 50;
     const playerRate = player.attributes.agility / 100;
-    const enemyRate = enemy.baseSpeed / 100;
+    const enemyRate = enemyStats.speed / 100;
 
     intervalRef.current = window.setInterval(() => {
       const now = Date.now();
@@ -173,6 +189,12 @@ export function CombatScreen() {
 
   if (!enemy) return <div className="p-8 text-center">战斗加载中...</div>;
 
+  const enemyStats = computeEnemyStats(enemy);
+  const playerHP = player.combatStats.currentHP;
+  const playerMaxHP = player.combatStats.maxHP;
+  const playerEnergy = player.combatStats.currentEnergy;
+  const playerMaxEnergy = player.combatStats.maxEnergy;
+
   return (
     <div className="min-h-screen p-4" style={{ backgroundColor: '#f5f0e6' }}>
       {/* 顶部：双方属性对比 */}
@@ -187,23 +209,23 @@ export function CombatScreen() {
               </div>
               <span className="text-2xl">👹</span>
             </div>
-            <HPBar current={enemyCurrentHP} max={enemy.baseHP} label="气血" />
+            <HPBar current={enemyCurrentHP} max={enemyStats.maxHP} label="气血" />
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>攻击</span>
-                <span className="font-bold" style={{ color: '#dc2626' }}>{enemy.baseAttack}</span>
+                <span className="font-bold" style={{ color: '#dc2626' }}>{enemyStats.attack}</span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>防御</span>
-                <span className="font-bold" style={{ color: '#2563eb' }}>{enemy.baseDefense}</span>
+                <span className="font-bold" style={{ color: '#2563eb' }}>{enemyStats.defense}</span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>速度</span>
-                <span className="font-bold" style={{ color: '#16a34a' }}>{enemy.baseSpeed}</span>
+                <span className="font-bold" style={{ color: '#16a34a' }}>{enemyStats.speed}</span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>气血</span>
-                <span className="font-bold" style={{ color: '#dc2626' }}>{enemy.baseHP}</span>
+                <span className="font-bold" style={{ color: '#dc2626' }}>{enemyStats.maxHP}</span>
               </div>
             </div>
           </div>
@@ -217,7 +239,10 @@ export function CombatScreen() {
               </div>
               <span className="text-2xl">🧑</span>
             </div>
-            <HPBar current={player.currentHP} max={player.maxHP} label="气血" />
+            <HPBar current={playerHP} max={playerMaxHP} label="气血" />
+            <div className="mt-2">
+              <HPBar current={playerEnergy} max={playerMaxEnergy} label="内功" type="energy" />
+            </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>攻击</span>
@@ -233,7 +258,7 @@ export function CombatScreen() {
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>气血</span>
-                <span className="font-bold" style={{ color: '#dc2626' }}>{player.maxHP}</span>
+                <span className="font-bold" style={{ color: '#dc2626' }}>{playerMaxHP}</span>
               </div>
             </div>
             {player.equipment.weapon && (

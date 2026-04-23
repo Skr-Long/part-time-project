@@ -29,7 +29,7 @@ export function LocationView() {
     const chance = (location.encounterChance || 30) * (1 + (player.attributes.luck + 5) / 50);
     if (Math.random() * 100 > chance) return;
     const enemyId = location.encounterPool[Math.floor(Math.random() * location.encounterPool.length)];
-    const enemy = getScaledEnemy(enemyId, player.level, location.zone);
+    const enemy = getScaledEnemy(enemyId, player.level);
     dispatch({ type: 'START_COMBAT', payload: { enemy } });
   };
 
@@ -41,7 +41,7 @@ export function LocationView() {
       </div>
 
       <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.3)', borderWidth: '1px', borderStyle: 'solid', borderColor: '#4a4a4a' }}>
-        <HPBar current={player.currentHP} max={player.maxHP} />
+        <HPBar current={player.combatStats.currentHP} max={player.combatStats.maxHP} />
         <div className="mt-2 flex justify-between text-sm">
           <span>等级 {player.level}</span>
           <CurrencyDisplay copper={player.gold} />

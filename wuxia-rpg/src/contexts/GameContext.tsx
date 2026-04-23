@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useMemo, ReactNode } from 'react';
 import type { GameState, GameAction, EquipmentItem } from '../types';
 import { getInitialGameState, DEFAULT_LOCATIONS } from '../hooks/useInitialState';
+import { calculateCombatStats } from '../utils/combat';
 
 const STORAGE_KEY = 'wuxia_rpg_game_state';
 
@@ -32,13 +33,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'START_COMBAT': {
       const enemy = action.payload.enemy;
+      const enemyStats = calculateCombatStats(enemy.attributes, enemy.level);
       return {
         ...state,
         ui: { ...state.ui, gamePhase: 'combat' },
         combat: {
           isActive: true,
           enemy,
-          enemyCurrentHP: enemy.baseHP,
+          enemyCurrentHP: enemyStats.maxHP,
           playerSpeedBar: 0,
           enemySpeedBar: 0,
           combatLog: [{
@@ -61,7 +63,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const newLog = [...state.combat.combatLog];
 
       let newEnemyHP = state.combat.enemyCurrentHP;
-      let newPlayerHP = state.player.currentHP;
+      let newPlayerHP = state.player.combatStats.currentHP;
 
       if (damage !== undefined) {
         newLog.push({
@@ -77,7 +79,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (damage > 0) {
           newEnemyHP = Math.max(0, state.combat.enemyCurrentHP - damage);
         } else if (damage < 0) {
-          newPlayerHP = Math.max(0, state.player.currentHP + damage); // damage is negative
+          newPlayerHP = Math.max(0, state.player.combatStats.currentHP + damage); // damage is negative
         }
       } else {
         newLog.push({
@@ -92,7 +94,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        player: { ...state.player, currentHP: newPlayerHP },
+        player: { ...state.player, combatStats: { ...state.player.combatStats, currentHP: newPlayerHP } },
         combat: {
           ...state.combat,
           enemyCurrentHP: newEnemyHP,
@@ -130,8 +132,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (itemIndex === -1) return state;
       const item = state.player.inventory[itemIndex];
       if (item.type !== 'consumable') return state;
-      let newHP = state.player.currentHP;
-      let newMaxHP = state.player.maxHP;
+      let newHP = state.player.combatStats.currentHP;
+      let newMaxHP = state.player.combatStats.maxHP;
       if (item.effects.maxHPBonus) newMaxHP += item.effects.maxHPBonus;
       if (item.effects.attributeBonus?.constitution) newMaxHP += item.effects.attributeBonus.constitution * 10;
       if (item.effects.attackBonus) newHP += item.effects.attackBonus;
@@ -144,7 +146,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
       return {
         ...state,
-        player: { ...state.player, currentHP: newHP, maxHP: newMaxHP, inventory: newInventory },
+        player: { ...state.player, combatStats: { ...state.player.combatStats, currentHP: newHP, maxHP: newMaxHP }, inventory: newInventory },
       };
     }
 
@@ -203,9 +205,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'UPDATE_ATTRIBUTE': {
       const { attribute, value } = action.payload;
+      const newAttributes = { ...state.player.attributes, [attribute]: value };
+      const newCombatStats = calculateCombatStats(newAttributes, state.player.level);
       return {
         ...state,
-        player: { ...state.player, attributes: { ...state.player.attributes, [attribute]: value } },
+        player: { ...state.player, attributes: newAttributes, combatStats: newCombatStats },
       };
     }
 
@@ -213,15 +217,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const newExp = state.player.exp + action.payload.amount;
       let newLevel = state.player.level;
       let newExpToNext = state.player.expToNext;
-      let newMaxHP = state.player.maxHP;
       while (newExp >= newExpToNext) {
         newLevel++;
         newExpToNext = Math.floor(newExpToNext * 1.5);
-        newMaxHP += 10;
       }
+      const newCombatStats = calculateCombatStats(state.player.attributes, newLevel);
       return {
         ...state,
-        player: { ...state.player, exp: newExp, level: newLevel, expToNext: newExpToNext, maxHP: newMaxHP },
+        player: { ...state.player, exp: newExp, level: newLevel, expToNext: newExpToNext, combatStats: newCombatStats },
       };
     }
 
@@ -303,8 +306,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'REST_AT_LOCATION': {
       const healPercent = 0.5;
-      const newHP = Math.min(state.player.maxHP, state.player.currentHP + Math.floor(state.player.maxHP * healPercent));
-      return { ...state, player: { ...state.player, currentHP: newHP } };
+      const newHP = Math.min(state.player.combatStats.maxHP, state.player.combatStats.currentHP + Math.floor(state.player.combatStats.maxHP * healPercent));
+      return { ...state, player: { ...state.player, combatStats: { ...state.player.combatStats, currentHP: newHP } } };
     }
 
     case 'LOAD_STATE':
@@ -319,17 +322,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'INIT_PLAYER_STATS': {
       const { name, attributes } = action.payload;
-      const constitution = attributes.constitution || 5;
-      const physique = attributes.physique || 5;
-      const maxHP = 100 + (constitution - 5) * 10 + (physique - 5) * 5;
+      const combatStats = calculateCombatStats(attributes, 1);
       return {
         ...state,
         player: {
           ...state.player,
           name,
           attributes,
-          maxHP,
-          currentHP: maxHP,
+          combatStats,
         },
         ui: { ...state.ui, gamePhase: 'exploration' },
       };

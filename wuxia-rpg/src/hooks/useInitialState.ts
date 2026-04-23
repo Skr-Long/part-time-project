@@ -1,8 +1,18 @@
 import type { GameState, PlayerState, Location, CombatState, UIState, MetaState } from '../types';
+import { calculateCombatStats } from '../utils/combat';
 
 const STORAGE_KEY = 'wuxia_rpg_game_state';
 
 function createInitialPlayer(): PlayerState {
+  const attributes = {
+    insight: 5,
+    constitution: 5,
+    strength: 5,
+    agility: 5,
+    physique: 5,
+    luck: 0,
+  };
+  const combatStats = calculateCombatStats(attributes, 1);
   return {
     id: 'player-1',
     name: '江湖新人',
@@ -10,16 +20,8 @@ function createInitialPlayer(): PlayerState {
     exp: 0,
     expToNext: 100,
     gold: 0,
-    attributes: {
-      insight: 5,
-      constitution: 5,
-      strength: 5,
-      agility: 5,
-      physique: 5,
-      luck: 0,
-    },
-    currentHP: 100,
-    maxHP: 100,
+    attributes,
+    combatStats,
     inventory: [],
     equipment: { weapon: null, armor: null, accessory: null },
     professions: { blacksmith: null, herbalist: null, merchant: null },
