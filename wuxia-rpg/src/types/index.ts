@@ -90,6 +90,22 @@ export interface PlayerProfessions {
   merchant: Profession | null;
 }
 
+// --- Monster Book Entry ---
+export interface MonsterBookEntry {
+  enemyId: string;
+  encountered: boolean;
+  defeated: number;
+  levelSeen: number;
+}
+
+// --- Technique Level ---
+export interface TechniqueLevel {
+  techniqueId: string;
+  level: number;
+  exp: number;
+  expToNext: number;
+}
+
 // --- Player State ---
 export interface PlayerState {
   id: string;
@@ -104,8 +120,10 @@ export interface PlayerState {
   equipment: EquipmentSlots;
   professions: PlayerProfessions;
   knownTechniques: string[];
+  techniqueLevels: TechniqueLevel[];
   visitedLocations: string[];
   completedEvents: string[];
+  monsterBook: MonsterBookEntry[];
 }
 
 // --- Character Data ---
@@ -383,7 +401,7 @@ export interface GameState {
 export type GameAction =
   | { type: 'MOVE_TO_LOCATION'; payload: { locationId: string } }
   | { type: 'START_COMBAT'; payload: { enemy: Enemy } }
-  | { type: 'EXECUTE_COMBAT_ACTION'; payload: { action: string; damage?: number } }
+  | { type: 'EXECUTE_COMBAT_ACTION'; payload: { action: string; damage?: number; isHeal?: boolean; healAmount?: number; isCrit?: boolean } }
   | { type: 'END_COMBAT'; payload: { victory: boolean; rewards?: CombatRewards } }
   | { type: 'USE_ITEM'; payload: { itemId: string } }
   | { type: 'EQUIP_ITEM'; payload: { itemId: string } }

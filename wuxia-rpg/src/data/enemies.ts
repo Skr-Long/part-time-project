@@ -5,14 +5,14 @@ export const ENEMIES: Record<string, Enemy> = {
   wolf: {
     id: 'wolf', nameCN: '野狼', descriptionCN: '丛林中的野狼，凶猛异常',
     level: 1, zone: 1,
-    attributes: { constitution: 1, strength: 1, physique: 1, agility: 2, insight: 2, luck: 2 },
+    attributes: { constitution: 1, strength: 1, physique: 1, agility: 1, insight: 2, luck: 2 },
     maxEnergy: 20,
     expReward: 15, goldReward: { min: 5, max: 20 }, lootTable: []
   },
   bandit: {
     id: 'bandit', nameCN: '山贼', descriptionCN: '占山为王的匪徒',
     level: 2, zone: 1,
-    attributes: { constitution: 2, strength: 2, physique: 2, agility: 2, insight: 2, luck: 2 },
+    attributes: { constitution: 2, strength: 2, physique: 2, agility: 1, insight: 2, luck: 2 },
     maxEnergy: 35,
     expReward: 25, goldReward: { min: 10, max: 40 }, lootTable: []
   },

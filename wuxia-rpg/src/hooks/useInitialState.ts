@@ -25,9 +25,14 @@ function createInitialPlayer(): PlayerState {
     inventory: [],
     equipment: { weapon: null, armor: null, accessory: null },
     professions: { blacksmith: null, herbalist: null, merchant: null },
-    knownTechniques: [],
+    knownTechniques: ['basic-qi', 'iron-fist'],
+    techniqueLevels: [
+      { techniqueId: 'basic-qi', level: 1, exp: 0, expToNext: 100 },
+      { techniqueId: 'iron-fist', level: 1, exp: 0, expToNext: 100 },
+    ],
     visitedLocations: [],
     completedEvents: [],
+    monsterBook: [],
   };
 }
 

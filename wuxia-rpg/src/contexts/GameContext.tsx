@@ -34,9 +34,30 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'START_COMBAT': {
       const enemy = action.payload.enemy;
       const enemyStats = calculateCombatStats(enemy.attributes, enemy.level);
+      
+      let newMonsterBook = [...state.player.monsterBook];
+      const existingEntry = newMonsterBook.find(m => m.enemyId === enemy.id);
+      
+      if (existingEntry) {
+        if (enemy.level > existingEntry.levelSeen) {
+          existingEntry.levelSeen = enemy.level;
+        }
+      } else {
+        newMonsterBook.push({
+          enemyId: enemy.id,
+          encountered: true,
+          defeated: 0,
+          levelSeen: enemy.level,
+        });
+      }
+      
       return {
         ...state,
         ui: { ...state.ui, gamePhase: 'combat' },
+        player: {
+          ...state.player,
+          monsterBook: newMonsterBook,
+        },
         combat: {
           isActive: true,
           enemy,
@@ -59,27 +80,35 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'EXECUTE_COMBAT_ACTION': {
       if (!state.combat.isActive || !state.combat.enemy) return state;
-      const { action: actionText, damage } = action.payload;
+      const { action: actionText, damage, isHeal, healAmount } = action.payload;
       const newLog = [...state.combat.combatLog];
 
       let newEnemyHP = state.combat.enemyCurrentHP;
       let newPlayerHP = state.player.combatStats.currentHP;
 
-      if (damage !== undefined) {
+      if (isHeal && healAmount !== undefined) {
+        newLog.push({
+          timestamp: Date.now(),
+          type: 'heal',
+          source: 'player',
+          value: healAmount,
+          text: actionText,
+          color: 'text-jade',
+        });
+        newPlayerHP = Math.min(state.player.combatStats.maxHP, state.player.combatStats.currentHP + healAmount);
+      } else if (damage !== undefined) {
         newLog.push({
           timestamp: Date.now(),
           type: 'damage',
           source: damage < 0 ? 'enemy' : 'player',
           value: damage,
           text: actionText,
-          color: damage < 0 ? 'text-red-600' : 'text-red-600',
+          color: damage < 0 ? 'text-red-600' : 'text-jade',
         });
-        // damage > 0 means player dealt damage to enemy
-        // damage < 0 means enemy dealt damage to player
         if (damage > 0) {
           newEnemyHP = Math.max(0, state.combat.enemyCurrentHP - damage);
         } else if (damage < 0) {
-          newPlayerHP = Math.max(0, state.player.combatStats.currentHP + damage); // damage is negative
+          newPlayerHP = Math.max(0, state.player.combatStats.currentHP + damage);
         }
       } else {
         newLog.push({
@@ -106,12 +135,60 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_COMBAT': {
       const { victory, rewards } = action.payload;
       let newState = { ...state };
+      
       if (victory && rewards) {
+        let newMonsterBook = [...state.player.monsterBook];
+        const enemy = state.combat.enemy;
+        
+        if (enemy) {
+          const existingEntry = newMonsterBook.find(m => m.enemyId === enemy.id);
+          if (existingEntry) {
+            existingEntry.defeated = (existingEntry.defeated || 0) + 1;
+          }
+        }
+        
+        const baseTechniqueExp = rewards.exp;
+        const techniqueExpBonus = Math.floor(baseTechniqueExp * (state.player.attributes.insight / 10));
+        const totalTechniqueExp = baseTechniqueExp + techniqueExpBonus;
+        
+        let newTechniqueLevels = state.player.techniqueLevels.map(tl => {
+          let newExp = tl.exp + totalTechniqueExp;
+          let newLevel = tl.level;
+          let newExpToNext = tl.expToNext;
+          
+          while (newExp >= newExpToNext) {
+            newExp -= newExpToNext;
+            newLevel++;
+            newExpToNext = Math.floor(newExpToNext * 1.5);
+          }
+          
+          return {
+            ...tl,
+            exp: newExp,
+            level: newLevel,
+            expToNext: newExpToNext,
+          };
+        });
+        
+        let newExp = state.player.exp + rewards.exp;
+        let newLevel = state.player.level;
+        let newExpToNext = state.player.expToNext;
+        while (newExp >= newExpToNext) {
+          newLevel++;
+          newExpToNext = Math.floor(newExpToNext * 1.5);
+        }
+        const newCombatStats = calculateCombatStats(state.player.attributes, newLevel);
+        
         newState.player = {
           ...state.player,
-          exp: state.player.exp + rewards.exp,
+          exp: newExp,
+          level: newLevel,
+          expToNext: newExpToNext,
           gold: state.player.gold + rewards.gold,
           inventory: [...state.player.inventory, ...rewards.items],
+          combatStats: newCombatStats,
+          monsterBook: newMonsterBook,
+          techniqueLevels: newTechniqueLevels,
         };
         newState.combat = {
           ...state.combat,
@@ -122,7 +199,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         newState.ui = { ...state.ui, gamePhase: 'victory' };
       } else {
         newState.combat = { ...state.combat, isActive: false, isPlayerTurn: false };
-        newState.ui = { ...state.ui, gamePhase: 'exploration' };
+        newState.ui = { ...state.ui, gamePhase: 'game_over' };
       }
       return newState;
     }
