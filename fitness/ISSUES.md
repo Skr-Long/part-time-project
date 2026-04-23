@@ -2,6 +2,7 @@
 
 > 记录时间：2026-04-23
 > 测试人员：系统测试
+> 最后更新：2026-04-23
 
 ---
 
@@ -43,8 +44,8 @@
 
 #### 问题 1: 循环计划 API 枚举运行时错误
 **严重程度**: 🔴 阻塞性
-**状态**: 待修复
-**测试结果**: ❌ 失败
+**状态**: ✅ 已修复
+**测试结果**: ✅ 修复后测试通过
 
 **描述**: `src/app/api/user/cycle-plan/route.ts` 中 `PRESETS` 常量使用 `CarbDayType.HIGH`、`CarbDayType.LOW` 等枚举值作为运行时值。由于 SQLite 不支持原生枚举，`CarbDayType` 从 `@prisma/client` 导入时为 `undefined`，导致运行时错误。
 
@@ -58,14 +59,20 @@ TypeError: Cannot read properties of undefined (reading 'HIGH')
 - `src/app/api/user/cycle-plan/route.ts:5` - `import { CarbDayType } from '@prisma/client'`
 - `src/app/api/user/cycle-plan/route.ts:74-102` - `PRESETS` 常量使用 `CarbDayType.HIGH` 等
 
-**解决方案**: 将枚举导入改为 `@/types/enums`
+**修复内容**: 将 `import { CarbDayType } from '@prisma/client'` 改为 `import { CarbDayType } from '@/types/enums'`
+
+**修复验证**:
+- 循环计划页面正常加载
+- 预设方案（经典 7 天、交替模式、周末高碳）正常显示
+- 自定义计划（周一到周日）正常显示
+- API 返回 200 状态码
 
 ---
 
 #### 问题 2: 营养计划 API 枚举运行时错误
 **严重程度**: 🔴 高
-**状态**: 待修复
-**测试结果**: ⚠️ 待确认
+**状态**: ✅ 已修复
+**测试结果**: ✅ 修复后测试通过
 
 **描述**: `src/app/api/user/nutrition-plan/route.ts` 中使用 `NutritionMode.PERCENTAGE` 和 `NutritionMode.WEIGHT` 作为运行时值进行比较。同样会导致运行时错误。
 
@@ -78,21 +85,32 @@ else if (mode === NutritionMode.WEIGHT) { ... }
 **受影响文件**:
 - `src/app/api/user/nutrition-plan/route.ts:5` - `import { NutritionMode } from '@prisma/client'`
 
-**解决方案**: 将枚举导入改为 `@/types/enums`
+**修复内容**: 将 `import { NutritionMode } from '@prisma/client'` 改为 `import { NutritionMode } from '@/types/enums'`
+
+**修复验证**:
+- 营养计划页面正常加载
+- 百分比模式和体重模式切换正常
+- 高碳日/中碳日/低碳日设置正常显示
+- API 返回 200 状态码
 
 ---
 
 #### 问题 3: 用户资料 API 枚举类型导入不规范
 **严重程度**: 🟡 中
-**状态**: 待修复
-**测试结果**: ✅ 暂时可用
+**状态**: ✅ 已修复
+**测试结果**: ✅ 修复后测试通过
 
 **描述**: `src/app/api/user/profile/route.ts` 从 `@prisma/client` 导入枚举类型 `Gender, Goal, ActivityLevel`，但这些枚举仅用作类型注解（`as Gender`），不是运行时值，所以暂时没有报错。但为了代码一致性和避免将来问题，应该统一使用本地枚举文件。
 
 **受影响文件**:
 - `src/app/api/user/profile/route.ts:5` - `import { Gender, Goal, ActivityLevel } from '@prisma/client'`
 
-**解决方案**: 将枚举导入改为 `@/types/enums`
+**修复内容**: 将 `import { Gender, Goal, ActivityLevel } from '@prisma/client'` 改为 `import { Gender, Goal, ActivityLevel } from '@/types/enums'`
+
+**修复验证**:
+- 代码一致性：所有枚举导入统一使用 `@/types/enums`
+- 设置页面保存功能正常
+- BMR/TDEE 计算功能正常
 
 ---
 
@@ -195,10 +213,34 @@ pattern: {
 
 ---
 
-### ❌ 测试失败的功能
-
-#### 测试 4.1: 查看默认循环计划
+#### 测试 4.2: 循环计划页面 - 修复后验证
 **测试时间**: 2026-04-23
+**测试步骤**:
+1. 登录后访问 `/cycle-plan` 页面
+2. 验证预设方案显示
+3. 验证自定义计划显示
+**预期结果**: 显示循环计划页面，预设方案和自定义计划正常显示
+**实际结果**: ✅ 页面正常加载，所有功能正常
+**状态**: ✅ 通过
+
+---
+
+#### 测试 3.1: 营养计划页面 - 修复后验证
+**测试时间**: 2026-04-23
+**测试步骤**:
+1. 登录后访问 `/nutrition-plan` 页面
+2. 验证百分比模式显示
+3. 切换到体重模式验证
+**预期结果**: 营养计划页面正常加载，两种模式切换正常
+**实际结果**: ✅ 页面正常加载，百分比模式和体重模式切换正常
+**状态**: ✅ 通过
+
+---
+
+### ❌ 测试失败的功能 (已修复)
+
+#### 测试 4.1: 查看默认循环计划 (修复前)
+**测试时间**: 2026-04-23 (修复前)
 **测试步骤**:
 1. 登录后访问 `/cycle-plan` 页面
 **预期结果**: 显示循环计划页面，加载默认计划
@@ -208,39 +250,55 @@ pattern: {
 TypeError: Cannot read properties of undefined (reading 'HIGH')
     at Object.PRESETS (src/app/api/user/cycle-plan/route.ts:76:25)
 ```
-**状态**: ❌ 失败 - 阻塞性问题
+**状态**: ✅ 已修复
 
 ---
 
 ## 修复计划
 
-### 阶段 1: 修复阻塞性和高优先级问题 (必须优先修复)
+### 阶段 1: 修复阻塞性和高优先级问题 ✅ 已完成
 
-| 序号 | 问题 | 文件 | 修复内容 | 优先级 |
-|------|------|------|----------|--------|
-| 1 | 循环计划 API 枚举错误 | `src/app/api/user/cycle-plan/route.ts` | 将 `import { CarbDayType } from '@prisma/client'` 改为 `import { CarbDayType } from '@/types/enums'` | 🔴 阻塞 |
-| 2 | 营养计划 API 枚举错误 | `src/app/api/user/nutrition-plan/route.ts` | 将 `import { NutritionMode } from '@prisma/client'` 改为 `import { NutritionMode } from '@/types/enums'` | 🔴 高 |
-| 3 | 用户资料 API 枚举导入 | `src/app/api/user/profile/route.ts` | 将 `import { Gender, Goal, ActivityLevel } from '@prisma/client'` 改为 `import { Gender, Goal, ActivityLevel } from '@/types/enums'` | 🟡 中 |
+| 序号 | 问题 | 文件 | 修复内容 | 优先级 | 状态 |
+|------|------|------|----------|--------|------|
+| 1 | 循环计划 API 枚举错误 | `src/app/api/user/cycle-plan/route.ts` | 将 `import { CarbDayType } from '@prisma/client'` 改为 `import { CarbDayType } from '@/types/enums'` | 🔴 阻塞 | ✅ 已完成 |
+| 2 | 营养计划 API 枚举错误 | `src/app/api/user/nutrition-plan/route.ts` | 将 `import { NutritionMode } from '@prisma/client'` 改为 `import { NutritionMode } from '@/types/enums'` | 🔴 高 | ✅ 已完成 |
+| 3 | 用户资料 API 枚举导入 | `src/app/api/user/profile/route.ts` | 将 `import { Gender, Goal, ActivityLevel } from '@prisma/client'` 改为 `import { Gender, Goal, ActivityLevel } from '@/types/enums'` | 🟡 中 | ✅ 已完成 |
 
-### 阶段 2: 测试验证修复
+### 阶段 2: 测试验证修复 ✅ 已完成
 
-1. 重新测试循环计划页面
-2. 重新测试营养计划页面
-3. 重新测试设置页面
-4. 完整测试注册-设置-仪表盘流程
+1. ✅ 重新测试循环计划页面
+2. ✅ 重新测试营养计划页面
+3. ✅ 重新测试设置页面
+4. ✅ 完整测试注册-设置-仪表盘流程
 
 ### 阶段 3: 优化和增强 (可选)
 
-| 序号 | 问题 | 描述 | 优先级 |
-|------|------|------|--------|
-| 1 | 邮箱格式验证 | 注册 API 添加邮箱正则验证 | 🟡 中 |
-| 2 | 错误提示优化 | 登录页面错误提示优化 | 🟢 低 |
+| 序号 | 问题 | 描述 | 优先级 | 状态 |
+|------|------|------|--------|------|
+| 1 | 邮箱格式验证 | 注册 API 添加邮箱正则验证 | 🟡 中 | 待处理 |
+| 2 | 错误提示优化 | 登录页面错误提示优化 | 🟢 低 | 待处理 |
 
 ---
 
 ## 已修复的问题 (历史记录)
 
-以下问题已在之前的修复中解决：
+以下问题已在修复中解决：
+
+### 本轮修复 (2026-04-23)
+
+1. ✅ **循环计划 API 枚举运行时错误**
+   - 文件: `src/app/api/user/cycle-plan/route.ts`
+   - 修复: `CarbDayType` 导入路径改为 `@/types/enums`
+
+2. ✅ **营养计划 API 枚举运行时错误**
+   - 文件: `src/app/api/user/nutrition-plan/route.ts`
+   - 修复: `NutritionMode` 导入路径改为 `@/types/enums`
+
+3. ✅ **用户资料 API 枚举类型导入不规范**
+   - 文件: `src/app/api/user/profile/route.ts`
+   - 修复: `Gender, Goal, ActivityLevel` 导入路径改为 `@/types/enums`
+
+### 之前修复
 
 1. ✅ **页面组件枚举导入错误** (5 个页面)
    - `src/app/setup/page.tsx` - 已修复
@@ -257,11 +315,35 @@ TypeError: Cannot read properties of undefined (reading 'HIGH')
 
 ## 待测试功能清单
 
-以下功能尚未完整测试，需要在修复问题 1-3 后继续测试：
+以下功能尚未完整测试，建议在后续测试中验证：
 
-- [ ] 营养计划页面 (`/nutrition-plan`)
-- [ ] 循环计划页面 (`/cycle-plan`) - 修复后测试
+- [x] 营养计划页面 (`/nutrition-plan`) - ✅ 已测试通过
+- [x] 循环计划页面 (`/cycle-plan`) - ✅ 已测试通过
 - [ ] 打卡页面 (`/checkin`)
-- [ ] 仪表盘完整功能 (`/dashboard`)
+- [x] 仪表盘完整功能 (`/dashboard`) - ✅ 已测试通过
 - [ ] 注册边界值测试（密码长度、邮箱格式等）
 - [ ] 登录错误场景测试（错误密码、不存在用户）
+
+---
+
+## 当前系统状态
+
+### ✅ 所有高优先级问题已修复
+
+**功能状态**:
+- ✅ 注册功能 - 正常
+- ✅ 登录功能 - 正常
+- ✅ 个人资料设置 - 正常
+- ✅ BMR/TDEE 计算 - 正常
+- ✅ 循环计划 - 正常 (已修复)
+- ✅ 营养计划 - 正常 (已修复)
+- ✅ 仪表盘 - 正常
+- ⚠️ 打卡功能 - 待测试
+
+**API 状态**:
+- `POST /api/auth/register` - ✅ 201
+- `POST /api/auth/callback/credentials` - ✅ 200
+- `GET/POST /api/user/profile` - ✅ 200
+- `GET/PUT /api/user/cycle-plan` - ✅ 200 (已修复)
+- `GET/PUT /api/user/nutrition-plan` - ✅ 200 (已修复)
+- `GET /api/user/dashboard` - ✅ 200

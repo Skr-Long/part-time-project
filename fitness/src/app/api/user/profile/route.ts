@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
-import { Gender, Goal, ActivityLevel } from '@prisma/client'
+import { Gender, Goal, ActivityLevel } from '@/types/enums'
 import { calculateBMR, calculateTDEE, calculateTargetCalories } from '@/lib/calculator'
 
 export async function POST(request: Request) {
