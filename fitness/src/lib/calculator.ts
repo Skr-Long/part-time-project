@@ -1,4 +1,5 @@
-import { Gender, Goal, ActivityLevel, NutritionMode, CarbDayType, NutritionPlan } from '@prisma/client'
+import { NutritionPlan } from '@prisma/client'
+import { Gender, Goal, ActivityLevel, NutritionMode, CarbDayType } from '@/types/enums'
 
 export interface UserProfileData {
   weight: number
@@ -164,7 +165,7 @@ export function getDayOfWeekName(day: number): string {
   return days[day]
 }
 
-export function formatCarbDayType(type: CarbDayType): string {
+export function formatCarbDayType(type: CarbDayType | string): string {
   switch (type) {
     case CarbDayType.HIGH:
       return '高碳日'
@@ -172,5 +173,7 @@ export function formatCarbDayType(type: CarbDayType): string {
       return '中碳日'
     case CarbDayType.LOW:
       return '低碳日'
+    default:
+      return '未知'
   }
 }

@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Navbar } from '@/components/layout/navbar'
-import { NutritionMode, NutritionPlan as NutritionPlanType } from '@prisma/client'
+import { NutritionPlan as NutritionPlanType } from '@prisma/client'
+import { NutritionMode } from '@/types/enums'
 import { cn } from '@/lib/utils'
 
 export default function NutritionPlanPage() {

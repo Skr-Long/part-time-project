@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Navbar } from '@/components/layout/navbar'
-import { CarbDayType } from '@prisma/client'
+import { CarbDayType } from '@/types/enums'
 import { formatCarbDayType } from '@/lib/calculator'
 import { cn, formatDate } from '@/lib/utils'
 
