@@ -3,30 +3,14 @@
 // ============================================
 
 import type { Attributes, CombatStats, Enemy } from '../types';
+import { calculateCombatStats as calculateCombatStatsFromAttributes } from './attributes';
 
 /**
  * Calculate combat stats from attributes and level
+ * @deprecated Use calculateCombatStats from src/utils/attributes.ts instead
  */
 export function calculateCombatStats(attributes: Attributes, level: number): CombatStats {
-  const { constitution, strength, physique, agility, insight, luck } = attributes;
-
-  const maxHP = 100 + constitution * 10 + level * 5;
-  const attack = 10 + strength * 5 + level * 2;
-  const defense = 5 + physique * 3 + level * 1;
-  const speed = 10 + agility * 2 + level * 1;
-  const maxEnergy = 50 + level * 10 + insight * 5;
-  const critChance = Math.max(0, luck) * 0.5;
-
-  return {
-    maxHP,
-    currentHP: maxHP,
-    maxEnergy,
-    currentEnergy: maxEnergy,
-    attack,
-    defense,
-    speed,
-    critChance,
-  };
+  return calculateCombatStatsFromAttributes(attributes, level);
 }
 
 /**

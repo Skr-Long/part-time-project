@@ -1,26 +1,56 @@
 import { useState, useEffect } from 'react';
 import { useGameDispatch } from '../contexts/GameContext';
-import { hasSavedGame, loadGame } from '../hooks/useSaveLoad';
+import {
+  hasAnySavedGame,
+  loadGame,
+  getAllSaveSlots,
+  formatSaveDate,
+  type SaveSlotInfo,
+} from '../hooks/useSaveLoad';
+
+interface SaveSlotModalState {
+  visible: boolean;
+}
 
 export default function TitleScreen() {
   const dispatch = useGameDispatch();
   const [canContinue, setCanContinue] = useState(false);
+  const [saveSlots, setSaveSlots] = useState<(SaveSlotInfo | null)[]>([]);
+  const [saveSlotModal, setSaveSlotModal] = useState<SaveSlotModalState>({
+    visible: false,
+  });
 
   useEffect(() => {
-    setCanContinue(hasSavedGame());
+    setCanContinue(hasAnySavedGame());
+    setSaveSlots(getAllSaveSlots());
   }, []);
+
+  const refreshSaveSlots = () => {
+    setSaveSlots(getAllSaveSlots());
+    setCanContinue(hasAnySavedGame());
+  };
 
   const handleNewGame = () => {
     dispatch({ type: 'RESET_GAME' });
     dispatch({ type: 'CHANGE_GAME_PHASE', payload: { phase: 'character_creation' } });
   };
 
-  const handleContinue = () => {
-    const savedState = loadGame();
+  const handleOpenSaveSlotModal = () => {
+    refreshSaveSlots();
+    setSaveSlotModal({ visible: true });
+  };
+
+  const handleCloseSaveSlotModal = () => {
+    setSaveSlotModal({ visible: false });
+  };
+
+  const handleLoadSaveSlot = (slotIndex: number) => {
+    const savedState = loadGame(slotIndex);
     if (savedState) {
       dispatch({ type: 'LOAD_STATE', payload: savedState });
       dispatch({ type: 'CHANGE_GAME_PHASE', payload: { phase: 'exploration' } });
     }
+    handleCloseSaveSlotModal();
   };
 
   return (
@@ -104,7 +134,7 @@ export default function TitleScreen() {
           </button>
 
           <button
-            onClick={handleContinue}
+            onClick={handleOpenSaveSlotModal}
             disabled={!canContinue}
             className="px-12 py-4 text-lg font-serif transition-all duration-300 border-2 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed"
             style={{
@@ -141,6 +171,114 @@ export default function TitleScreen() {
       {/* Bottom decorative strokes */}
       <div className="absolute bottom-10 left-1/4 w-32 h-1 opacity-20" style={{ backgroundColor: 'var(--color-ink-black)' }} />
       <div className="absolute bottom-10 right-1/4 w-24 h-1 opacity-15" style={{ backgroundColor: 'var(--color-ink-black)' }} />
+
+      {/* Save Slot Selection Modal */}
+      {saveSlotModal.visible && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+          style={{ backgroundColor: 'rgba(26, 26, 26, 0.7)' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseSaveSlotModal();
+          }}
+        >
+          <div
+            className="w-full max-w-lg flex flex-col rounded-lg shadow-2xl border-2"
+            style={{
+              backgroundColor: '#e8e0d0',
+              borderColor: 'rgba(122, 122, 122, 0.3)',
+              maxHeight: '80vh',
+            }}
+          >
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">📜</span>
+                <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>选择游历记忆</h2>
+              </div>
+              <button
+                onClick={handleCloseSaveSlotModal}
+                className="w-8 h-8 flex items-center justify-center transition-colors"
+                style={{ color: '#4a4a4a' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {saveSlots.map((slotInfo, slotIndex) => {
+                const isEmpty = !slotInfo;
+
+                return (
+                  <button
+                    key={slotIndex}
+                    onClick={() => !isEmpty && handleLoadSaveSlot(slotIndex)}
+                    disabled={isEmpty}
+                    className="w-full p-4 rounded-lg border transition-all duration-200 text-left disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: isEmpty ? 'rgba(200, 200, 200, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                      borderColor: isEmpty ? 'rgba(122, 122, 122, 0.2)' : 'var(--color-jade)',
+                      opacity: isEmpty ? 0.6 : 1,
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 flex items-center justify-center rounded-lg border-2"
+                          style={{
+                            backgroundColor: isEmpty ? 'rgba(200, 200, 200, 0.3)' : 'rgba(0, 128, 0, 0.1)',
+                            borderColor: isEmpty ? 'rgba(122, 122, 122, 0.2)' : 'var(--color-jade)',
+                          }}
+                        >
+                          <span className="text-lg font-serif font-bold" style={{ color: isEmpty ? '#7a7a7a' : '#1a1a1a' }}>
+                            {slotIndex + 1}
+                          </span>
+                        </div>
+                        {isEmpty ? (
+                          <div>
+                            <span style={{ color: '#7a7a7a' }}>空记忆槽</span>
+                            <p className="text-xs" style={{ color: '#999' }}>暂无存档</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-bold" style={{ color: '#1a1a1a' }}>
+                              {slotInfo.name}
+                            </div>
+                            <div className="text-xs flex items-center gap-2" style={{ color: '#7a7a7a' }}>
+                              <span>等级 {slotInfo.level}</span>
+                              {slotInfo.locationName && (
+                                <>
+                                  <span>•</span>
+                                  <span>{slotInfo.locationName}</span>
+                                </>
+                              )}
+                              <span>•</span>
+                              <span>{formatSaveDate(slotInfo.savedAt)}</span>
+                            </div>
+                            {slotInfo.attributes && (
+                              <div className="text-xs mt-1 flex gap-2" style={{ color: '#999' }}>
+                                <span>悟{slotInfo.attributes.insight}</span>
+                                <span>体{slotInfo.attributes.constitution}</span>
+                                <span>力{slotInfo.attributes.strength}</span>
+                                <span>敏{slotInfo.attributes.agility}</span>
+                                <span>骨{slotInfo.attributes.physique}</span>
+                                <span>运{slotInfo.attributes.luck}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {!isEmpty && (
+                        <span className="text-sm font-bold" style={{ color: 'var(--color-jade)' }}>
+                          点击继续 →
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

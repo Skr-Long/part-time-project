@@ -10,7 +10,7 @@ function createInitialPlayer(): PlayerState {
     strength: 5,
     agility: 5,
     physique: 5,
-    luck: 0,
+    luck: 5,
   };
   const combatStats = calculateCombatStats(attributes, 1);
   return {

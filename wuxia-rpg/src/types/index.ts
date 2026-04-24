@@ -4,12 +4,12 @@
 
 // --- Core Attributes ---
 export interface Attributes {
-  insight: number;       // 1-10, skill learning speed
-  constitution: number;  // min 1, determines HP
-  strength: number;     // min 1, determines attack
-  agility: number;      // min 1, determines speed
-  physique: number;     // min 1, determines defense
-  luck: number;         // -5 to 10, encounter probability
+  insight: number;       // 悟性: 1-10, 影响内功上限和技能学习速度
+  constitution: number;  // 体质: min 1, 影响最大生命值
+  strength: number;      // 力量: min 1, 影响攻击力
+  agility: number;       // 敏捷: min 1, 影响速度
+  physique: number;      // 根骨: min 1, 影响防御力、技能熟练度和悟性增益
+  luck: number;          // 幸运: -5 to 10, 影响暴击率和随机事件
 }
 
 // --- Combat Stats ---

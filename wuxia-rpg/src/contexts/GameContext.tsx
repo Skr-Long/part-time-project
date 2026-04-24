@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect, useMemo, ReactNode } from 'react';
 import type { GameState, GameAction, EquipmentItem } from '../types';
 import { getInitialGameState, DEFAULT_LOCATIONS } from '../hooks/useInitialState';
-import { calculateCombatStats } from '../utils/combat';
-
-const STORAGE_KEY = 'wuxia_rpg_game_state';
+import { calculateCombatStats, getSkillExpBonusMultiplier } from '../utils/attributes';
+import { saveGame } from '../hooks/useSaveLoad';
 
 interface GameContextValue {
   state: GameState;
@@ -148,8 +147,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
         
         const baseTechniqueExp = rewards.exp;
-        const techniqueExpBonus = Math.floor(baseTechniqueExp * (state.player.attributes.insight / 10));
-        const totalTechniqueExp = baseTechniqueExp + techniqueExpBonus;
+        const skillExpMultiplier = getSkillExpBonusMultiplier(state.player.attributes);
+        const totalTechniqueExp = Math.floor(baseTechniqueExp * skillExpMultiplier);
         
         let newTechniqueLevels = state.player.techniqueLevels.map(tl => {
           let newExp = tl.exp + totalTechniqueExp;
@@ -423,9 +422,9 @@ export function GameProvider({ children }: GameProviderProps) {
   const [state, dispatch] = useReducer(gameReducer, null, getInitialGameState);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch { /* ignore */ }
+    if (state.ui.gamePhase !== 'title' && state.ui.gamePhase !== 'character_creation') {
+      saveGame(state);
+    }
   }, [state]);
 
   return (
