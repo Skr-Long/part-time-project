@@ -223,7 +223,24 @@ export interface CombatState {
   combatRewards: CombatRewards | null;
 }
 
-// --- Martial Arts Effect ---
+export type MartialArtSourceType = 'event' | 'purchase' | 'insight' | 'initial';
+
+export interface MartialArtPassiveEffect {
+  type: 'attribute_bonus' | 'combat_bonus' | 'hp_regen' | 'energy_regen';
+  attribute?: keyof Attributes;
+  combatStat?: keyof Omit<CombatStats, 'currentHP' | 'currentEnergy'>;
+  value: number;
+  description: string;
+}
+
+export interface MartialArtSource {
+  type: MartialArtSourceType;
+  description: string;
+  eventId?: string;
+  price?: number;
+  minInsight?: number;
+}
+
 export interface MartialArtEffect {
   type: 'damage' | 'heal' | 'buff' | 'debuff' | 'defense';
   value: number;
@@ -233,17 +250,18 @@ export interface MartialArtEffect {
   application: 'instant' | 'temporary';
 }
 
-// --- Martial Art ---
 export interface MartialArt {
   id: string;
   nameCN: string;
-  descriptionCN: string;
   type: 'internal' | 'external' | 'weapon' | 'special';
   level: number;
   insightRequired: number;
   prerequisiteSkills?: string[];
   learningChanceBase: number;
+  lore: string;
   effects: MartialArtEffect[];
+  passiveEffects: MartialArtPassiveEffect[];
+  source: MartialArtSource;
   upgradedFrom?: string;
   upgradedTo?: string;
 }

@@ -3,19 +3,38 @@
 // ============================================
 
 import type { Attributes, CombatStats, Enemy } from '../types';
+import { calculatePassiveBonuses } from '../data/martialArts';
 
 /**
- * Calculate combat stats from attributes and level
+ * Calculate combat stats from attributes and level, including martial arts passive bonuses
  */
-export function calculateCombatStats(attributes: Attributes, level: number): CombatStats {
-  const { constitution, strength, physique, agility, insight, luck } = attributes;
+export function calculateCombatStats(
+  attributes: Attributes,
+  level: number,
+  knownTechniques: string[] = []
+): CombatStats {
+  const bonuses = calculatePassiveBonuses(knownTechniques);
+  
+  const effectiveAttributes = { ...attributes };
+  (Object.keys(bonuses.attributeBonuses) as Array<keyof Attributes>).forEach(attr => {
+    effectiveAttributes[attr] = (effectiveAttributes[attr] || 0) + (bonuses.attributeBonuses[attr] || 0);
+  });
 
-  const maxHP = 100 + constitution * 10 + level * 5;
-  const attack = 10 + strength * 5 + level * 2;
-  const defense = 5 + physique * 3 + level * 1;
-  const speed = 10 + agility * 2 + level * 1;
-  const maxEnergy = 50 + level * 10 + insight * 5;
-  const critChance = Math.max(0, luck) * 0.5;
+  const { constitution, strength, physique, agility, insight, luck } = effectiveAttributes;
+
+  let maxHP = 100 + constitution * 10 + level * 5;
+  let attack = 10 + strength * 5 + level * 2;
+  let defense = 5 + physique * 3 + level * 1;
+  let speed = 10 + agility * 2 + level * 1;
+  let maxEnergy = 50 + level * 10 + insight * 5;
+  let critChance = Math.max(0, luck) * 0.5;
+
+  if (bonuses.combatBonuses.maxHP) maxHP += bonuses.combatBonuses.maxHP;
+  if (bonuses.combatBonuses.attack) attack += bonuses.combatBonuses.attack;
+  if (bonuses.combatBonuses.defense) defense += bonuses.combatBonuses.defense;
+  if (bonuses.combatBonuses.speed) speed += bonuses.combatBonuses.speed;
+  if (bonuses.combatBonuses.maxEnergy) maxEnergy += bonuses.combatBonuses.maxEnergy;
+  if (bonuses.combatBonuses.critChance) critChance += bonuses.combatBonuses.critChance;
 
   return {
     maxHP,
@@ -25,7 +44,7 @@ export function calculateCombatStats(attributes: Attributes, level: number): Com
     attack,
     defense,
     speed,
-    critChance,
+    critChance: Math.min(100, critChance),
   };
 }
 
