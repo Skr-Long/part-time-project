@@ -85,12 +85,26 @@ export function calculateExpToNextLevel(level: number): number {
 
 /**
  * Scale enemy attributes based on player level and zone
+ * 
+ * 优化缩放机制：
+ * - 敌人有基础等级范围，让玩家能够感受到成长
+ * - 当玩家等级高于敌人基础等级时，敌人属性增长放缓
+ * - 当玩家等级低于敌人基础等级时，敌人有轻微的等级惩罚
  */
 export function scaleEnemyAttributes(enemy: Enemy, playerLevel: number): Enemy {
-  const levelFactor = 1 + (playerLevel - 1) * 0.1;
-  const zoneFactor = 1 + (enemy.zone - 1) * 0.15;
+  const enemyBaseLevel = enemy.level;
+  const levelDiff = playerLevel - enemyBaseLevel;
 
-  const scale = (value: number): number => Math.floor(value * levelFactor * zoneFactor);
+  let levelFactor: number;
+  if (levelDiff >= 0) {
+    levelFactor = 1 + levelDiff * 0.03;
+  } else {
+    levelFactor = Math.max(0.7, 1 + levelDiff * 0.05);
+  }
+
+  const zoneFactor = 1 + (enemy.zone - 1) * 0.1;
+
+  const scale = (value: number): number => Math.max(1, Math.floor(value * levelFactor * zoneFactor));
 
   return {
     ...enemy,

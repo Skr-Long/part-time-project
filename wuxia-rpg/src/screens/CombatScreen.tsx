@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameSelector, useGameDispatch } from '../hooks/useGame';
 import { HPBar } from '../components/ui/HPBar';
 import { getMartialArt } from '../data/martialArts';
-import type { Enemy, CombatLogEntry } from '../types';
+import { calculateDamage } from '../utils/combat';
+import type { Enemy, CombatLogEntry, CombatStats } from '../types';
 
 interface CombatSkill {
   id: string;
@@ -81,12 +82,24 @@ export function CombatScreen() {
     setPlayerSpeed(0);
   }, []);
 
-  const playerDefense = player.attributes.physique + (player.equipment.armor?.effects.defenseBonus || 0);
+  const playerStats: CombatStats = {
+    ...player.combatStats,
+    attack: player.combatStats.attack + (player.equipment.weapon?.effects.attackBonus || 0),
+    defense: player.combatStats.defense + (player.equipment.armor?.effects.defenseBonus || 0),
+    speed: player.combatStats.speed + (player.equipment.armor?.effects.speedBonus || 0),
+    maxHP: player.combatStats.maxHP + (player.equipment.armor?.effects.maxHPBonus || 0),
+  };
 
   const executePlayerAction = useCallback((action: { type: 'attack' | 'skill'; skill?: CombatSkill }) => {
     if (!enemy) return;
 
     const enemyStats = computeEnemyStats(enemy);
+    const enemyCombatStats: CombatStats = {
+      ...enemyStats,
+      currentHP: enemyCurrentHP,
+      currentEnergy: enemy.maxEnergy,
+      critChance: Math.max(0, enemy.attributes.luck) * 0.5,
+    };
 
     if (action.type === 'skill' && action.skill && action.skill.effectType === 'heal') {
       const skill = action.skill;
@@ -104,13 +117,15 @@ export function CombatScreen() {
     }
 
     const baseDamage = action.type === 'attack'
-      ? player.attributes.strength + (player.equipment.weapon?.effects.attackBonus || 0)
-      : action.skill?.value || 0;
+      ? playerStats.attack
+      : (action.skill?.value || 0) + Math.floor(playerStats.attack * 0.5);
 
-    const critChance = (player.attributes.luck + 5) / 100;
-    const isCrit = Math.random() < critChance;
-    let damage = Math.max(1, baseDamage - enemyStats.defense);
-    if (isCrit) damage = Math.floor(damage * 1.5);
+    const attackerStats: CombatStats = {
+      ...playerStats,
+      attack: baseDamage,
+    };
+
+    const { damage, isCritical: isCrit } = calculateDamage(attackerStats, enemyCombatStats, baseDamage);
 
     if (action.type === 'skill' && action.skill) {
       dispatch({ 
@@ -133,41 +148,51 @@ export function CombatScreen() {
     }
 
     resetPlayerSpeed();
-  }, [enemy, player, dispatch, resetPlayerSpeed, playerDefense]);
+  }, [enemy, player, playerStats, enemyCurrentHP, dispatch, resetPlayerSpeed]);
 
   const executeEnemyAttack = useCallback(() => {
     if (!enemy) return;
     const enemyStats = computeEnemyStats(enemy);
-    const baseDamage = enemyStats.attack;
-    let damage = Math.max(1, baseDamage - Math.floor(playerDefense / 2));
-    
-    let damageReduction = 0;
+    const enemyCombatStats: CombatStats = {
+      ...enemyStats,
+      currentHP: enemyCurrentHP,
+      currentEnergy: enemy.maxEnergy,
+      critChance: Math.max(0, enemy.attributes.luck) * 0.5,
+    };
+
+    let finalDefense = playerStats.defense;
     let defendMessage = '';
     
     if (isDefending) {
-      const defenseReduction = Math.floor(playerDefense * 0.5);
-      damageReduction = Math.min(defenseReduction, damage);
-      damage = Math.max(1, damage - damageReduction);
-      defendMessage = ` (防御减免 ${damageReduction} 点伤害)`;
+      finalDefense = Math.floor(playerStats.defense * 1.5);
+      defendMessage = ` (防御姿态)`;
     }
+
+    const defenderStats: CombatStats = {
+      ...playerStats,
+      defense: finalDefense,
+    };
+
+    const { damage, isCritical } = calculateDamage(enemyCombatStats, defenderStats, enemyStats.attack);
+    const critMessage = isCritical ? ' (暴击!)' : '';
     
     dispatch({ 
       type: 'EXECUTE_COMBAT_ACTION', 
       payload: { 
-        action: `🩸 ${enemy.nameCN} 发动攻击！对你造成 ${damage} 点伤害！${defendMessage}`, 
+        action: `🩸 ${enemy.nameCN} 发动攻击！对你造成 ${damage} 点伤害！${critMessage}${defendMessage}`, 
         damage: -damage 
       } 
     });
     setEnemySpeed(0);
-  }, [enemy, player, isDefending, dispatch, playerDefense]);
+  }, [enemy, playerStats, enemyCurrentHP, isDefending, dispatch]);
 
   useEffect(() => {
     if (!enemy) return;
 
     const enemyStats = computeEnemyStats(enemy);
     const tickRate = 50;
-    const basePlayerRate = player.attributes.agility / 100;
-    const playerRate = isDefending ? basePlayerRate * 0.5 : basePlayerRate;
+    const basePlayerRate = playerStats.speed / 100;
+    const playerRate = isDefending ? basePlayerRate * 0.7 : basePlayerRate;
     const enemyRate = enemyStats.speed / 100;
 
     intervalRef.current = window.setInterval(() => {
@@ -196,7 +221,7 @@ export function CombatScreen() {
     }, tickRate);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [enemy, player.attributes.agility, executeEnemyAttack, isDefending]);
+  }, [enemy, playerStats.speed, executeEnemyAttack, isDefending]);
 
   const canAct = playerSpeed >= 100;
   const availableSkills = getAvailableSkills();
@@ -350,17 +375,17 @@ export function CombatScreen() {
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>攻击</span>
-                <span className="font-bold" style={{ color: '#dc2626' }}>{player.attributes.strength + (player.equipment.weapon?.effects.attackBonus || 0)}</span>
+                <span className="font-bold" style={{ color: '#dc2626' }}>{playerStats.attack}</span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>防御</span>
-                <span className="font-bold" style={{ color: '#2563eb' }}>{playerDefense}</span>
+                <span className="font-bold" style={{ color: '#2563eb' }}>{playerStats.defense}</span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>速度</span>
                 <span className="font-bold" style={{ color: '#16a34a' }}>
-                  {player.attributes.agility}
-                  {isDefending && <span className="ml-1" style={{ color: '#f59e0b' }}>(x0.5)</span>}
+                  {playerStats.speed}
+                  {isDefending && <span className="ml-1" style={{ color: '#f59e0b' }}>(x0.7)</span>}
                 </span>
               </div>
               <div className="flex justify-between">
