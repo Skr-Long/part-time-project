@@ -68,7 +68,7 @@ export function CombatScreen() {
             speedCost: 30 + (tech.level * 5),
             effectType: effect.type as 'damage' | 'heal',
             value: baseValue + levelBonus,
-            description: tech.descriptionCN,
+            description: tech.lore,
             type: tech.type,
           });
         }

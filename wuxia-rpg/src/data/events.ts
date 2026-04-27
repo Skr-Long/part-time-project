@@ -22,9 +22,7 @@ export const EVENTS: GameEvent[] = [
     triggerCondition: { type: 'combat', enemyId: 'mountain-bandit', result: 'victory' },
     isExclusive: true,
     exclusiveWith: ['first-combat', 'first-battle-lose'],
-    actions: [
-      { type: 'learnTechnique', techniqueId: 'iron-fist' },
-    ],
+    actions: [],
     rewards: { exp: 100, gold: 50 },
   },
   {
@@ -37,9 +35,22 @@ export const EVENTS: GameEvent[] = [
     isExclusive: false,
     actions: [
       { type: 'modifyAttribute', attribute: 'insight', value: 1 },
-      { type: 'learnTechnique', techniqueId: 'basic-qi' },
     ],
     rewards: { exp: 80 },
+  },
+  {
+    id: 'temple-light-step',
+    nameCN: '禅师传功',
+    descriptionCN: '静心大师对你的虔诚印象深刻，决定传授轻功绝学。',
+    type: 'story',
+    triggerCondition: { type: 'location', locationId: 'temple', minVisits: 2 },
+    prerequisiteEvents: ['monk-blessing'],
+    isExclusive: true,
+    exclusiveWith: [],
+    actions: [
+      { type: 'learnTechnique', techniqueId: 'ling-bo' },
+    ],
+    rewards: { exp: 150 },
   },
   {
     id: 'cave-treasure',
@@ -126,7 +137,7 @@ export const EVENTS: GameEvent[] = [
           message: '大师对你的虔诚印象深刻，传授你高深功法。',
           effects: [
             { type: 'modifyAttribute', attribute: 'insight', value: 2 },
-            { type: 'learnTechnique', techniqueId: 'light-step' },
+            { type: 'learnTechnique', techniqueId: 'ling-bo' },
           ],
           rewards: { exp: 100 },
         },

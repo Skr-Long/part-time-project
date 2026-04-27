@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import { useGameSelector, useGameDispatch } from '../../contexts/GameContext';
-import { MARTIAL_ARTS, getAvailableMartialArts, getMartialArt } from '../../data/martialArts';
-import type { MartialArt, TechniqueLevel } from '../../types';
+import {
+  getAvailableMartialArts,
+  getVisibleMartialArts,
+  getMartialArt,
+  calculatePassiveBonuses
+} from '../../data/martialArts';
+import type { MartialArt } from '../../types';
 
 type TabType = 'all' | 'internal' | 'external' | 'weapon' | 'special';
 
 const TABS: { key: TabType; label: string; icon: string }[] = [
   { key: 'all', label: '全部', icon: '📚' },
-  { key: 'internal', label: '內功', icon: '🧘' },
+  { key: 'internal', label: '内功', icon: '🧘' },
   { key: 'external', label: '外功', icon: '👊' },
   { key: 'weapon', label: '兵器', icon: '⚔️' },
   { key: 'special', label: '特殊', icon: '✨' },
@@ -21,7 +26,7 @@ const TYPE_ICONS: Record<MartialArt['type'], string> = {
 };
 
 const TYPE_NAMES: Record<MartialArt['type'], string> = {
-  internal: '內功',
+  internal: '内功',
   external: '外功',
   weapon: '兵器',
   special: '特殊',
@@ -33,6 +38,257 @@ const TYPE_COLORS: Record<MartialArt['type'], { bg: string; text: string; border
   weapon: { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
   special: { bg: 'rgba(236, 72, 153, 0.1)', text: '#ec4899', border: 'rgba(236, 72, 153, 0.3)' },
 };
+
+const SOURCE_TYPE_NAMES: Record<string, string> = {
+  initial: '初始',
+  event: '奇遇',
+  purchase: '购买',
+  insight: '领悟',
+};
+
+interface MartialArtCardProps {
+  art: MartialArt;
+  isKnown: boolean;
+  canLearn: boolean;
+  isLocked: boolean;
+  lockedReason: string;
+  onLearn: (art: MartialArt) => void;
+}
+
+function MartialArtCard({
+  art,
+  isKnown,
+  canLearn,
+  isLocked,
+  lockedReason,
+  onLearn
+}: MartialArtCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const getEffectDisplay = (effect: MartialArt['effects'][0]): string => {
+    const attrNames: Record<string, string> = {
+      strength: '力量',
+      agility: '敏捷',
+      physique: '根骨',
+      constitution: '体质',
+      insight: '悟性',
+      luck: '运气',
+    };
+
+    const typeNames: Record<string, string> = {
+      damage: '伤害',
+      heal: '治疗',
+      buff: '增益',
+      debuff: '减益',
+      defense: '防御',
+    };
+
+    let base = `${typeNames[effect.type]}: ${effect.value}`;
+    if (effect.scalingAttribute && effect.scalingPercent) {
+      base += ` + ${attrNames[effect.scalingAttribute] || effect.scalingAttribute}×${effect.scalingPercent}%`;
+    }
+    if (effect.duration) {
+      base += ` (${effect.duration}回合)`;
+    }
+    return base;
+  };
+
+  return (
+    <div
+      className="rounded border cursor-pointer transition-all"
+      style={{
+        backgroundColor: isKnown ? 'rgba(74, 124, 89, 0.1)' : 'rgba(232, 224, 208, 0.5)',
+        borderColor: isExpanded ? '#4a7c59' : 'rgba(122, 122, 122, 0.2)',
+        opacity: isLocked ? 0.6 : 1,
+      }}
+      onClick={() => setIsExpanded(!isExpanded)}
+    >
+      <div className="p-3">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{TYPE_ICONS[art.type]}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-serif font-medium" style={{ color: '#1a1a1a' }}>{art.nameCN}</span>
+              <span
+                className="text-xs px-1.5 py-0.5 rounded"
+                style={{
+                  backgroundColor: 'rgba(122, 122, 122, 0.2)',
+                  color: '#4a4a4a',
+                }}
+              >
+                {TYPE_NAMES[art.type]}
+              </span>
+              {isKnown && (
+                <span
+                  className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: '#4a7c59', color: '#fff' }}
+                >
+                  已学会
+                </span>
+              )}
+              <span
+                className="text-xs px-1.5 py-0.5 rounded"
+                style={{
+                  backgroundColor: art.source.type === 'initial' ? 'rgba(74, 124, 89, 0.2)' :
+                    art.source.type === 'event' ? 'rgba(59, 130, 246, 0.2)' :
+                    art.source.type === 'purchase' ? 'rgba(201, 162, 39, 0.2)' :
+                    'rgba(139, 92, 246, 0.2)',
+                  color: art.source.type === 'initial' ? '#4a7c59' :
+                    art.source.type === 'event' ? '#3b82f6' :
+                    art.source.type === 'purchase' ? '#c9a227' :
+                    '#8b5cf6',
+                }}
+              >
+                {SOURCE_TYPE_NAMES[art.source.type]}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 mt-1 text-xs" style={{ color: '#7a7a7a' }}>
+              <span>等级 {art.level}</span>
+              <span>悟性 {art.insightRequired}</span>
+              <span>成功率 {art.learningChanceBase}%</span>
+            </div>
+          </div>
+          <span
+            className="text-lg transition-transform"
+            style={{
+              color: '#7a7a7a',
+              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            }}
+          >
+            ▼
+          </span>
+        </div>
+
+        {!isExpanded && (
+          <div className="mt-2 text-sm" style={{ color: '#4a4a4a' }}>
+            点击查看详情
+          </div>
+        )}
+
+        {isExpanded && (
+          <div className="mt-3 pt-3 border-t" style={{ borderColor: 'rgba(122, 122, 122, 0.2)' }}>
+            <div className="space-y-3">
+              <div>
+                <h4 className="text-sm font-medium mb-1" style={{ color: '#4a7c59' }}>武学简介</h4>
+                <p className="text-sm leading-relaxed" style={{ color: '#4a4a4a' }}>
+                  {art.lore}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium mb-1" style={{ color: '#4a7c59' }}>主动效果</h4>
+                <div className="space-y-1">
+                  {art.effects.map((effect, idx) => (
+                    <div
+                      key={idx}
+                      className="text-sm px-2 py-1 rounded"
+                      style={{
+                        backgroundColor: effect.type === 'heal' ? 'rgba(74, 124, 89, 0.1)' :
+                          effect.type === 'damage' ? 'rgba(220, 38, 38, 0.05)' :
+                          'rgba(122, 122, 122, 0.1)',
+                        color: effect.type === 'heal' ? '#4a7c59' :
+                          effect.type === 'damage' ? '#dc2626' :
+                          '#4a4a4a',
+                      }}
+                    >
+                      {getEffectDisplay(effect)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {art.passiveEffects.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-1" style={{ color: '#8b5cf6' }}>被动效果</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {art.passiveEffects.map((effect, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs px-2 py-1 rounded"
+                        style={{
+                          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                          color: '#8b5cf6',
+                          border: '1px solid rgba(139, 92, 246, 0.3)',
+                        }}
+                      >
+                        {effect.description}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h4 className="text-sm font-medium mb-1" style={{ color: '#c9a227' }}>获取方式</h4>
+                <p className="text-sm" style={{ color: '#4a4a4a' }}>
+                  {art.source.description}
+                  {art.source.price && ` (价格: ${art.source.price}铜钱)`}
+                  {art.source.minInsight && ` (最低悟性: ${art.source.minInsight})`}
+                </p>
+              </div>
+
+              {art.prerequisiteSkills && art.prerequisiteSkills.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-1" style={{ color: '#7a7a7a' }}>前置武学</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {art.prerequisiteSkills.map((preId, idx) => {
+                      const preArt = getMartialArt(preId);
+                      return (
+                        <span
+                          key={idx}
+                          className="text-xs px-2 py-1 rounded"
+                          style={{
+                            backgroundColor: 'rgba(122, 122, 122, 0.15)',
+                            color: '#4a4a4a',
+                          }}
+                        >
+                          {preArt?.nameCN || preId}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {!isKnown && (
+                <div
+                  className="pt-2 flex items-center justify-between"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {canLearn ? (
+                    <button
+                      onClick={() => onLearn(art)}
+                      className="px-4 py-2 text-sm rounded border transition-colors font-medium"
+                      style={{
+                        backgroundColor: '#c9a227',
+                        color: '#1a1a1a',
+                        borderColor: 'rgba(201, 162, 39, 0.5)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#1a1a1a';
+                        e.currentTarget.style.color = '#f5f0e6';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#c9a227';
+                        e.currentTarget.style.color = '#1a1a1a';
+                      }}
+                    >
+                      尝试学习
+                    </button>
+                  ) : (
+                    <span className="text-sm px-3 py-2 rounded" style={{ color: '#7a7a7a', backgroundColor: 'rgba(122, 122, 122, 0.1)' }}>
+                      {lockedReason}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function MartialArtsModal() {
   const dispatch = useGameDispatch();
@@ -46,29 +302,55 @@ export default function MartialArtsModal() {
   };
 
   const knownIds = player.knownTechniques;
-  const availableArts = getAvailableMartialArts(player.attributes.insight, knownIds);
+  const visibleArts = getVisibleMartialArts(
+    player.attributes.insight,
+    knownIds,
+    player.completedEvents
+  );
+  const availableArts = getAvailableMartialArts(
+    player.attributes.insight,
+    knownIds,
+    player.completedEvents,
+    player.gold
+  );
 
-  const getTechniqueLevel = (techId: string): TechniqueLevel | undefined => {
+  const getTechniqueLevel = (techId: string) => {
     return player.techniqueLevels.find(t => t.techniqueId === techId);
   };
 
   const filteredArts = activeTab === 'all'
-    ? MARTIAL_ARTS.filter(m => knownIds.includes(m.id) || availableArts.some(a => a.id === m.id))
-    : MARTIAL_ARTS.filter(m => m.type === activeTab);
+    ? visibleArts
+    : visibleArts.filter(m => m.type === activeTab);
 
-  const groupedArts: Record<MartialArt['type'], MartialArt[]> = {
-    internal: [],
-    external: [],
-    weapon: [],
-    special: [],
+  const getLockedReason = (art: MartialArt): string => {
+    if (knownIds.includes(art.id)) return '';
+
+    if (art.insightRequired > player.attributes.insight) {
+      return `悟性不足 (需要${art.insightRequired}, 当前${player.attributes.insight})`;
+    }
+
+    if (art.prerequisiteSkills && !art.prerequisiteSkills.every(pre => knownIds.includes(pre))) {
+      const missing = art.prerequisiteSkills.filter(pre => !knownIds.includes(pre));
+      return `需要先学会: ${missing.map(id => getMartialArt(id)?.nameCN || id).join(', ')}`;
+    }
+
+    if (art.source.type === 'event' && art.source.eventId && !player.completedEvents.includes(art.source.eventId)) {
+      return '需要完成特定事件';
+    }
+
+    if (art.source.type === 'purchase' && art.source.price && player.gold < art.source.price) {
+      return `金币不足 (需要${art.source.price}, 当前${player.gold})`;
+    }
+
+    if (art.source.type === 'insight' && art.source.minInsight && player.attributes.insight < art.source.minInsight) {
+      return `悟性不足无法领悟 (需要${art.source.minInsight})`;
+    }
+
+    return '条件未满足';
   };
 
-  filteredArts.forEach(art => {
-    groupedArts[art.type].push(art);
-  });
-
   const handleLearn = (martialArt: MartialArt) => {
-    const successChance = martialArt.learningChanceBase + (player.attributes.insight - martialArt.insightRequired) * 5;
+    const successChance = Math.min(95, martialArt.learningChanceBase + (player.attributes.insight - martialArt.insightRequired) * 5);
     const roll = Math.random() * 100;
     const success = roll < successChance;
 
@@ -77,190 +359,14 @@ export default function MartialArtsModal() {
     }
 
     setLearningResult({ success, name: martialArt.nameCN });
-    setTimeout(() => setLearningResult(null), 2000);
+    setTimeout(() => setLearningResult(null), 2500);
   };
 
-  const renderMartialArtCard = (art: MartialArt) => {
-    const isKnown = knownIds.includes(art.id);
-    const isAvailable = availableArts.some(a => a.id === art.id);
-    const canLearn = !isKnown && isAvailable;
-    const techLevel = getTechniqueLevel(art.id);
-    const colors = TYPE_COLORS[art.type];
-
-    const expPercent = techLevel ? (techLevel.exp / techLevel.expToNext) * 100 : 0;
-
-    const effectDescriptions = art.effects.map(effect => {
-      if (effect.type === 'damage') {
-        const baseValue = effect.value;
-        const scaling = effect.scalingAttribute ? ` + ${effect.scalingAttribute}×${effect.scalingPercent}` : '';
-        return `⚔️ 伤害 ${baseValue}${scaling}`;
-      }
-      if (effect.type === 'heal') {
-        const baseValue = effect.value;
-        const scaling = effect.scalingAttribute ? ` + ${effect.scalingAttribute}×${effect.scalingPercent}` : '';
-        return `💚 治疗 ${baseValue}${scaling}`;
-      }
-      if (effect.type === 'buff') {
-        return `⬆️ 增益 (${effect.duration}回合)`;
-      }
-      if (effect.type === 'debuff') {
-        return `⬇️ 减益 (${effect.duration}回合)`;
-      }
-      return `${effect.type}`;
-    }).join(' · ');
-
-    return (
-      <div
-        key={art.id}
-        className="p-4 rounded-lg border-2 mb-3 transition-all"
-        style={{
-          backgroundColor: isKnown ? colors.bg : 'rgba(232, 224, 208, 0.5)',
-          borderColor: isKnown ? colors.border : 'rgba(122, 122, 122, 0.2)',
-          boxShadow: isKnown ? `0 2px 8px ${colors.border}` : 'none',
-        }}
-      >
-        <div className="flex items-start gap-3">
-          <div 
-            className="text-3xl p-2 rounded-lg"
-            style={{ backgroundColor: colors.bg }}
-          >
-            {TYPE_ICONS[art.type]}
-          </div>
-          
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-serif font-bold text-lg" style={{ color: colors.text }}>{art.nameCN}</span>
-              <span
-                className="text-xs px-2 py-0.5 rounded"
-                style={{
-                  backgroundColor: colors.bg,
-                  color: colors.text,
-                }}
-              >
-                {TYPE_NAMES[art.type]}
-              </span>
-              {isKnown && (
-                <span
-                  className="text-xs px-2 py-0.5 rounded font-bold"
-                  style={{ backgroundColor: '#4a7c59', color: '#fff' }}
-                >
-                  已学会
-                </span>
-              )}
-            </div>
-
-            <p className="text-sm mt-1" style={{ color: '#7a7a7a' }}>{art.descriptionCN}</p>
-
-            <div className="flex items-center gap-4 mt-2 text-xs" style={{ color: '#7a7a7a' }}>
-              <span>秘籍等级 {art.level}</span>
-              <span>悟性需求 {art.insightRequired}</span>
-              <span>基础成功率 {art.learningChanceBase}%</span>
-            </div>
-
-            {isKnown && techLevel && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span style={{ color: colors.text, fontWeight: 'bold' }}>
-                    等级 {techLevel.level}
-                  </span>
-                  <span style={{ color: '#7a7a7a' }}>
-                    经验 {techLevel.exp} / {techLevel.expToNext}
-                  </span>
-                </div>
-                <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(122, 122, 122, 0.2)' }}>
-                  <div 
-                    className="h-full transition-all duration-500 rounded-full"
-                    style={{ 
-                      width: `${expPercent}%`, 
-                      background: `linear-gradient(90deg, ${colors.text}, ${colors.text}cc)`
-                    }} 
-                  />
-                </div>
-                <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
-                  💡 战斗中使用可获得经验（悟性 {player.attributes.insight}：经验加成 +{Math.floor(techLevel.expToNext * (player.attributes.insight / 100))}）
-                </div>
-              </div>
-            )}
-
-            {effectDescriptions && (
-              <div className="mt-2 text-xs" style={{ color: '#4a4a4a' }}>
-                效果：{effectDescriptions}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {canLearn && (
-              <button
-                onClick={() => handleLearn(art)}
-                className="px-4 py-2 text-sm rounded-lg border transition-all font-bold"
-                style={{
-                  backgroundColor: '#c9a227',
-                  color: '#1a1a1a',
-                  borderColor: 'rgba(201, 162, 39, 0.5)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1a1a1a';
-                  e.currentTarget.style.color = '#f5f0e6';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#c9a227';
-                  e.currentTarget.style.color = '#1a1a1a';
-                }}
-              >
-                学习
-              </button>
-            )}
-            {!isKnown && !isAvailable && (
-              <div className="text-xs text-center" style={{ color: '#7a7a7a' }}>
-                {art.prerequisiteSkills
-                  ? (
-                    <div>
-                      <p>需先学:</p>
-                      {art.prerequisiteSkills.map(id => {
-                        const pre = getMartialArt(id);
-                        const hasPre = knownIds.includes(id);
-                        return (
-                          <p key={id} style={{ color: hasPre ? '#4a7c59' : '#dc2626' }}>
-                            {hasPre ? '✓' : '✗'} {pre?.nameCN || id}
-                          </p>
-                        );
-                      })}
-                    </div>
-                  )
-                  : <p>悟性不足</p>}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderGroup = (type: MartialArt['type']) => {
-    const arts = groupedArts[type];
-    if (arts.length === 0) return null;
-
-    const colors = TYPE_COLORS[type];
-
-    return (
-      <div key={type} className="mb-4">
-        <div 
-          className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg"
-          style={{ backgroundColor: colors.bg }}
-        >
-          <span className="text-xl">{TYPE_ICONS[type]}</span>
-          <span className="font-serif font-bold" style={{ color: colors.text }}>
-            {TYPE_NAMES[type]}
-          </span>
-          <span className="text-xs" style={{ color: '#7a7a7a' }}>
-            ({arts.filter(a => knownIds.includes(a.id)).length}/{arts.length} 已学会)
-          </span>
-        </div>
-        {arts.map(art => renderMartialArtCard(art))}
-      </div>
-    );
-  };
+  const totalBonuses = calculatePassiveBonuses(knownIds);
+  const hasBonuses = Object.keys(totalBonuses.attributeBonuses).length > 0 ||
+    Object.keys(totalBonuses.combatBonuses).length > 0 ||
+    totalBonuses.hpRegen > 0 ||
+    totalBonuses.energyRegen > 0;
 
   return (
     <div
@@ -268,7 +374,7 @@ export default function MartialArtsModal() {
       style={{ backgroundColor: 'rgba(26, 26, 26, 0.7)' }}
     >
       <div
-        className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-lg shadow-2xl border-2"
+        className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-lg shadow-2xl border-2"
         style={{
           backgroundColor: '#e8e0d0',
           borderColor: 'rgba(122, 122, 122, 0.3)',
@@ -281,7 +387,7 @@ export default function MartialArtsModal() {
           </div>
           <button
             onClick={handleClose}
-            className="w-8 h-8 flex items-center justify-center transition-colors"
+            className="w-8 h-8 flex items-center justify-center transition-colors rounded hover:bg-gray-200"
             style={{ color: '#4a4a4a' }}
           >
             ✕
@@ -296,7 +402,55 @@ export default function MartialArtsModal() {
               color: learningResult.success ? '#4a7c59' : '#dc2626',
             }}
           >
-            {learningResult.success ? `🎉 学会了「${learningResult.name}」！` : `「${learningResult.name}」学习失败...再试一次吧！`}
+            {learningResult.success
+              ? `🎉 成功学会了「${learningResult.name}」！`
+              : `😔 「${learningResult.name}」学习失败，再试一次吧...`}
+          </div>
+        )}
+
+        {hasBonuses && (
+          <div
+            className="p-3 border-b"
+            style={{
+              borderColor: 'rgba(122, 122, 122, 0.2)',
+              backgroundColor: 'rgba(139, 92, 246, 0.05)',
+            }}
+          >
+            <h4 className="text-xs font-medium mb-2" style={{ color: '#8b5cf6' }}>当前被动加成</h4>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(totalBonuses.attributeBonuses).map(([attr, value]) => {
+                const attrNames: Record<string, string> = {
+                  strength: '力量', agility: '敏捷', physique: '根骨',
+                  constitution: '体质', insight: '悟性', luck: '运气',
+                };
+                return (
+                  <span key={attr} className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+                    {attrNames[attr]}+{value}
+                  </span>
+                );
+              })}
+              {Object.entries(totalBonuses.combatBonuses).map(([stat, value]) => {
+                const statNames: Record<string, string> = {
+                  maxHP: '生命上限', maxEnergy: '内力上限',
+                  attack: '攻击', defense: '防御', speed: '速度', critChance: '暴击',
+                };
+                return (
+                  <span key={stat} className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(74, 124, 89, 0.1)', color: '#4a7c59' }}>
+                    {statNames[stat]}+{value}
+                  </span>
+                );
+              })}
+              {totalBonuses.hpRegen > 0 && (
+                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(220, 38, 38, 0.05)', color: '#dc2626' }}>
+                  回血+{totalBonuses.hpRegen}/回合
+                </span>
+              )}
+              {totalBonuses.energyRegen > 0 && (
+                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+                  回内+{totalBonuses.energyRegen}/回合
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -318,40 +472,54 @@ export default function MartialArtsModal() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {filteredArts.length === 0 ? (
-            <div className="text-center py-8" style={{ color: '#7a7a7a' }}>
-              <span className="text-4xl">📖</span>
-              <p className="mt-2">暂无武学秘籍</p>
-              <p className="text-sm mt-1">探索江湖，寻找更多秘籍吧！</p>
+            <div className="text-center py-12" style={{ color: '#7a7a7a' }}>
+              <div className="text-4xl mb-2">📚</div>
+              <div className="font-serif">暂无可见的武学秘籍</div>
+              <div className="text-sm mt-1">探索江湖、提升悟性，或完成特定事件来解锁更多武学</div>
             </div>
-          ) : activeTab === 'all' ? (
-            <>
-              {renderGroup('internal')}
-              {renderGroup('external')}
-              {renderGroup('weapon')}
-              {renderGroup('special')}
-            </>
           ) : (
-            filteredArts.map(art => renderMartialArtCard(art))
+            filteredArts.map(art => {
+              const isKnown = knownIds.includes(art.id);
+              const isAvailable = availableArts.some(a => a.id === art.id);
+              const canLearn = !isKnown && isAvailable;
+              const isLocked = !isKnown && !isAvailable;
+
+              return (
+                <MartialArtCard
+                  key={art.id}
+                  art={art}
+                  isKnown={isKnown}
+                  canLearn={canLearn}
+                  isLocked={isLocked}
+                  lockedReason={getLockedReason(art)}
+                  onLearn={handleLearn}
+                />
+              );
+            })
           )}
         </div>
 
         <div className="p-4 border-t" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(26, 26, 26, 0.05)' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🧠</span>
-              <span className="text-sm" style={{ color: '#4a4a4a' }}>悟性</span>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <div>
+                <span style={{ color: '#7a7a7a' }}>悟性: </span>
+                <span className="font-serif" style={{ color: '#8b5cf6' }}>{player.attributes.insight}</span>
+              </div>
+              <div>
+                <span style={{ color: '#7a7a7a' }}>已学会: </span>
+                <span className="font-serif" style={{ color: '#4a7c59' }}>{knownIds.length}/{visibleArts.length}</span>
+              </div>
+              <div>
+                <span style={{ color: '#7a7a7a' }}>金币: </span>
+                <span className="font-serif" style={{ color: '#c9a227' }}>{player.gold}</span>
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-lg font-serif font-bold" style={{ color: '#8b5cf6' }}>{player.attributes.insight}</span>
-              <span className="text-xs ml-2" style={{ color: '#7a7a7a' }}>
-                (学习成功率 +{(player.attributes.insight - 5) * 5}% · 经验加成 +{Math.floor(100 * (player.attributes.insight / 100))}%)
-              </span>
+            <div className="text-xs" style={{ color: '#7a7a7a' }}>
+              点击武学卡片查看详情
             </div>
-          </div>
-          <div className="mt-2 text-xs" style={{ color: '#7a7a7a' }}>
-            💡 悟性影响：学习成功率、功法等级提升速度、战斗后功法经验获得
           </div>
         </div>
       </div>

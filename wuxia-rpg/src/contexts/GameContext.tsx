@@ -176,7 +176,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           newLevel++;
           newExpToNext = Math.floor(newExpToNext * 1.5);
         }
-        const newCombatStats = calculateCombatStats(state.player.attributes, newLevel);
+        const newCombatStats = calculateCombatStats(state.player.attributes, newLevel, state.player.knownTechniques);
         
         newState.player = {
           ...state.player,
@@ -273,19 +273,41 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'LEARN_TECHNIQUE': {
       const techId = action.payload.techniqueId;
       if (state.player.knownTechniques.includes(techId)) return state;
+      const newKnownTechniques = [...state.player.knownTechniques, techId];
+      const newCombatStats = calculateCombatStats(state.player.attributes, state.player.level, newKnownTechniques);
+      const preservedCurrentHP = Math.min(state.player.combatStats.currentHP, newCombatStats.maxHP);
+      const preservedCurrentEnergy = Math.min(state.player.combatStats.currentEnergy, newCombatStats.maxEnergy);
       return {
         ...state,
-        player: { ...state.player, knownTechniques: [...state.player.knownTechniques, techId] },
+        player: { 
+          ...state.player, 
+          knownTechniques: newKnownTechniques, 
+          combatStats: { 
+            ...newCombatStats, 
+            currentHP: preservedCurrentHP,
+            currentEnergy: preservedCurrentEnergy
+          } 
+        },
       };
     }
 
     case 'UPDATE_ATTRIBUTE': {
       const { attribute, value } = action.payload;
       const newAttributes = { ...state.player.attributes, [attribute]: value };
-      const newCombatStats = calculateCombatStats(newAttributes, state.player.level);
+      const newCombatStats = calculateCombatStats(newAttributes, state.player.level, state.player.knownTechniques);
+      const preservedCurrentHP = Math.min(state.player.combatStats.currentHP, newCombatStats.maxHP);
+      const preservedCurrentEnergy = Math.min(state.player.combatStats.currentEnergy, newCombatStats.maxEnergy);
       return {
         ...state,
-        player: { ...state.player, attributes: newAttributes, combatStats: newCombatStats },
+        player: { 
+          ...state.player, 
+          attributes: newAttributes, 
+          combatStats: { 
+            ...newCombatStats, 
+            currentHP: preservedCurrentHP,
+            currentEnergy: preservedCurrentEnergy
+          } 
+        },
       };
     }
 
@@ -297,10 +319,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         newLevel++;
         newExpToNext = Math.floor(newExpToNext * 1.5);
       }
-      const newCombatStats = calculateCombatStats(state.player.attributes, newLevel);
+      const newCombatStats = calculateCombatStats(state.player.attributes, newLevel, state.player.knownTechniques);
+      const preservedCurrentHP = Math.min(state.player.combatStats.currentHP, newCombatStats.maxHP);
+      const preservedCurrentEnergy = Math.min(state.player.combatStats.currentEnergy, newCombatStats.maxEnergy);
       return {
         ...state,
-        player: { ...state.player, exp: newExp, level: newLevel, expToNext: newExpToNext, combatStats: newCombatStats },
+        player: { 
+          ...state.player, 
+          exp: newExp, 
+          level: newLevel, 
+          expToNext: newExpToNext, 
+          combatStats: { 
+            ...newCombatStats, 
+            currentHP: preservedCurrentHP,
+            currentEnergy: preservedCurrentEnergy
+          } 
+        },
       };
     }
 

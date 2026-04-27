@@ -12,7 +12,8 @@ function createInitialPlayer(): PlayerState {
     physique: 5,
     luck: 5,
   };
-  const combatStats = calculateCombatStats(attributes, 1);
+  const initialTechniques = ['basic-breathing', 'iron-palm'];
+  const combatStats = calculateCombatStats(attributes, 1, initialTechniques);
   return {
     id: 'player-1',
     name: '江湖新人',
@@ -25,10 +26,10 @@ function createInitialPlayer(): PlayerState {
     inventory: [],
     equipment: { weapon: null, armor: null, accessory: null },
     professions: { blacksmith: null, herbalist: null, merchant: null },
-    knownTechniques: ['basic-qi', 'iron-fist'],
+    knownTechniques: initialTechniques,
     techniqueLevels: [
-      { techniqueId: 'basic-qi', level: 1, exp: 0, expToNext: 100 },
-      { techniqueId: 'iron-fist', level: 1, exp: 0, expToNext: 100 },
+      { techniqueId: 'basic-breathing', level: 1, exp: 0, expToNext: 100 },
+      { techniqueId: 'iron-palm', level: 1, exp: 0, expToNext: 100 },
     ],
     visitedLocations: [],
     completedEvents: [],
