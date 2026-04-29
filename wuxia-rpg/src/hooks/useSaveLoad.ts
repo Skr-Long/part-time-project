@@ -1,8 +1,9 @@
-import type { GameState } from '../types';
+import type { GameState, MetaState } from '../types';
 
 export const SAVE_SLOT_COUNT = 10;
 export const SAVE_SLOT_PREFIX = 'wuxia_rpg_slot_';
 export const CURRENT_SLOT_KEY = 'wuxia_rpg_current_slot';
+export const GLOBAL_SETTINGS_KEY = 'wuxia_rpg_global_settings';
 
 export interface SaveSlotInfo {
   slotIndex: number;
@@ -126,4 +127,18 @@ export function formatSaveDate(timestamp: number): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+export function saveGlobalSettings(settings: MetaState['settings']): void {
+  try {
+    localStorage.setItem(GLOBAL_SETTINGS_KEY, JSON.stringify(settings));
+  } catch { /* ignore */ }
+}
+
+export function loadGlobalSettings(): MetaState['settings'] | null {
+  try {
+    const raw = localStorage.getItem(GLOBAL_SETTINGS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as MetaState['settings'];
+  } catch { return null; }
 }

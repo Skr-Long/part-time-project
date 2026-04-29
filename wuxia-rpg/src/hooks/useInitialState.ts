@@ -1,5 +1,6 @@
 import type { GameState, PlayerState, Location, CombatState, UIState, MetaState } from '../types';
 import { calculateCombatStats } from '../utils/combat';
+import { loadGlobalSettings } from './useSaveLoad';
 
 const STORAGE_KEY = 'wuxia_rpg_game_state';
 
@@ -134,10 +135,15 @@ function createInitialUIState(): UIState {
 }
 
 function createInitialMetaState(): MetaState {
+  const globalSettings = loadGlobalSettings();
   return {
     version: '1.0.0',
     lastSaved: null,
-    settings: { autoSave: true },
+    settings: { 
+      autoSave: true, 
+      combatSpeedMultiplier: 0.5,
+      ...globalSettings,
+    },
   };
 }
 

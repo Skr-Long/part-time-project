@@ -377,6 +377,7 @@ export interface MetaState {
     soundEnabled?: boolean;
     textSpeed?: 'slow' | 'normal' | 'fast';
     autoSave?: boolean;
+    combatSpeedMultiplier?: number;
   };
 }
 
@@ -441,4 +442,5 @@ export type GameAction =
   | { type: 'LOAD_STATE'; payload: GameState }
   | { type: 'RESET_GAME' }
   | { type: 'SET_PLAYER_NAME'; payload: { name: string } }
-  | { type: 'INIT_PLAYER_STATS'; payload: { name: string; attributes: Attributes } };
+  | { type: 'INIT_PLAYER_STATS'; payload: { name: string; attributes: Attributes } }
+  | { type: 'UPDATE_SETTINGS'; payload: Partial<MetaState['settings']> };

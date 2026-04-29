@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect, useMemo, ReactNode } from 'react';
 import type { GameState, GameAction, EquipmentItem } from '../types';
 import { getInitialGameState, DEFAULT_LOCATIONS } from '../hooks/useInitialState';
-import { calculateCombatStats, getSkillExpBonusMultiplier } from '../utils/attributes';
+import { calculateCombatStats } from '../utils/combat';
+import { getSkillExpBonusMultiplier } from '../utils/attributes';
 import { saveGame } from '../hooks/useSaveLoad';
 
 interface GameContextValue {
@@ -442,6 +443,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           combatStats,
         },
         ui: { ...state.ui, gamePhase: 'exploration' },
+      };
+    }
+
+    case 'UPDATE_SETTINGS': {
+      return {
+        ...state,
+        meta: {
+          ...state.meta,
+          settings: {
+            ...state.meta.settings,
+            ...action.payload,
+          },
+        },
       };
     }
 

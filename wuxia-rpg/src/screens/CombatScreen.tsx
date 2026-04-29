@@ -31,6 +31,7 @@ export function CombatScreen() {
   const dispatch = useGameDispatch();
   const combat = useGameSelector(s => s.combat);
   const player = useGameSelector(s => s.player);
+  const combatSpeedMultiplier = useGameSelector(s => s.meta.settings.combatSpeedMultiplier) ?? 1;
 
   const [playerSpeed, setPlayerSpeed] = useState(0);
   const [enemySpeed, setEnemySpeed] = useState(0);
@@ -191,9 +192,9 @@ export function CombatScreen() {
 
     const enemyStats = computeEnemyStats(enemy);
     const tickRate = 50;
-    const basePlayerRate = playerStats.speed / 100;
+    const basePlayerRate = (playerStats.speed / 100) * combatSpeedMultiplier;
     const playerRate = isDefending ? basePlayerRate * 0.7 : basePlayerRate;
-    const enemyRate = enemyStats.speed / 100;
+    const enemyRate = (enemyStats.speed / 100) * combatSpeedMultiplier;
 
     intervalRef.current = window.setInterval(() => {
       const now = Date.now();
@@ -221,7 +222,7 @@ export function CombatScreen() {
     }, tickRate);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [enemy, playerStats.speed, executeEnemyAttack, isDefending]);
+  }, [enemy, playerStats.speed, executeEnemyAttack, isDefending, combatSpeedMultiplier]);
 
   const canAct = playerSpeed >= 100;
   const availableSkills = getAvailableSkills();
@@ -233,7 +234,7 @@ export function CombatScreen() {
         setIsDefending(false);
       } else {
         setIsDefending(true);
-        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你进入防御姿态！(防御减免 ${Math.floor(playerDefense * 0.5)} 点，速度槽积累减半)` } });
+        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你进入防御姿态！(防御减免 ${Math.floor(playerStats.defense * 0.5)} 点，速度槽积累减半)` } });
       }
       return;
     }
