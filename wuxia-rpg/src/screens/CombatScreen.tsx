@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useGameSelector, useGameDispatch } from '../hooks/useGame';
 import { HPBar } from '../components/ui/HPBar';
 import { getMartialArt } from '../data/martialArts';
 import { calculateDamage } from '../utils/combat';
-import type { Enemy, CombatLogEntry, CombatStats } from '../types';
+import type { Enemy, CombatLogEntry, CombatStats, CombatStatsType, GameAction } from '../types';
 
 interface CombatSkill {
   id: string;
@@ -16,7 +16,7 @@ interface CombatSkill {
   type: 'internal' | 'external' | 'weapon' | 'special';
 }
 
-function computeEnemyStats(enemy: Enemy) {
+function computeEnemyStats(enemy: Enemy): CombatStatsType {
   const { attributes, level } = enemy;
   return {
     maxHP: 100 + attributes.constitution * 10 + level * 5,
@@ -24,6 +24,7 @@ function computeEnemyStats(enemy: Enemy) {
     defense: 5 + attributes.physique * 3 + level * 1,
     speed: 10 + attributes.agility * 2 + level * 1,
     maxEnergy: 50 + level * 10 + attributes.insight * 5,
+    critChance: Math.max(0, attributes.luck) * 0.5,
   };
 }
 
@@ -40,7 +41,64 @@ export function CombatScreen() {
   const lastTickRef = useRef<number>(Date.now());
   const logContainerRef = useRef<HTMLDivElement>(null);
 
+  const enemyAttackingRef = useRef(false);
+  const dispatchRef = useRef<React.Dispatch<GameAction>>(dispatch);
+  const isInitializedRef = useRef(false);
+
   const { enemy, enemyCurrentHP, combatLog } = combat;
+
+  useEffect(() => {
+    dispatchRef.current = dispatch;
+  }, [dispatch]);
+
+  const playerBaseStats = useMemo(() => {
+    return {
+      attack: player.combatStats.attack + (player.equipment.weapon?.effects.attackBonus || 0),
+      defense: player.combatStats.defense + (player.equipment.armor?.effects.defenseBonus || 0),
+      speed: player.combatStats.speed + (player.equipment.armor?.effects.speedBonus || 0),
+      maxHP: player.combatStats.maxHP + (player.equipment.armor?.effects.maxHPBonus || 0),
+      maxEnergy: player.combatStats.maxEnergy,
+      critChance: player.combatStats.critChance,
+    };
+  }, [
+    player.combatStats.attack,
+    player.combatStats.defense,
+    player.combatStats.speed,
+    player.combatStats.maxHP,
+    player.combatStats.maxEnergy,
+    player.combatStats.critChance,
+    player.equipment,
+  ]);
+
+  const playerStateRef = useRef({
+    baseStats: playerBaseStats,
+    currentHP: player.combatStats.currentHP,
+    currentEnergy: player.combatStats.currentEnergy,
+    isDefending: isDefending,
+    attributes: player.attributes,
+  });
+
+  useEffect(() => {
+    playerStateRef.current = {
+      baseStats: playerBaseStats,
+      currentHP: player.combatStats.currentHP,
+      currentEnergy: player.combatStats.currentEnergy,
+      isDefending: isDefending,
+      attributes: player.attributes,
+    };
+  }, [playerBaseStats, player.combatStats.currentHP, player.combatStats.currentEnergy, isDefending, player.attributes]);
+
+  const enemyStateRef = useRef({
+    enemy: enemy,
+    enemyCurrentHP: enemyCurrentHP,
+  });
+
+  useEffect(() => {
+    enemyStateRef.current = {
+      enemy: enemy,
+      enemyCurrentHP: enemyCurrentHP,
+    };
+  }, [enemy, enemyCurrentHP]);
 
   useEffect(() => {
     if (logContainerRef.current) {
@@ -83,13 +141,63 @@ export function CombatScreen() {
     setPlayerSpeed(0);
   }, []);
 
-  const playerStats: CombatStats = {
-    ...player.combatStats,
-    attack: player.combatStats.attack + (player.equipment.weapon?.effects.attackBonus || 0),
-    defense: player.combatStats.defense + (player.equipment.armor?.effects.defenseBonus || 0),
-    speed: player.combatStats.speed + (player.equipment.armor?.effects.speedBonus || 0),
-    maxHP: player.combatStats.maxHP + (player.equipment.armor?.effects.maxHPBonus || 0),
-  };
+  const executeEnemyAttackInternal = useCallback(() => {
+    const { enemy: currentEnemy, enemyCurrentHP: currentEnemyHP } = enemyStateRef.current;
+    const { baseStats, isDefending: currentIsDefending, currentHP, currentEnergy } = playerStateRef.current;
+    const currentDispatch = dispatchRef.current;
+    
+    if (!currentEnemy) return;
+    
+    if (enemyAttackingRef.current) {
+      return;
+    }
+    
+    enemyAttackingRef.current = true;
+    
+    try {
+      const enemyStats = computeEnemyStats(currentEnemy);
+      const enemyCombatStats: CombatStats = {
+        ...enemyStats,
+        currentHP: currentEnemyHP,
+        currentEnergy: currentEnemy.maxEnergy,
+        critChance: Math.max(0, currentEnemy.attributes.luck) * 0.5,
+      };
+
+      let finalDefense = baseStats.defense;
+      let defendMessage = '';
+      
+      if (currentIsDefending) {
+        finalDefense = Math.floor(baseStats.defense * 1.5);
+        defendMessage = ` (防御姿态)`;
+      }
+
+      const defenderStats: CombatStats = {
+        maxHP: baseStats.maxHP,
+        currentHP: currentHP,
+        maxEnergy: baseStats.maxEnergy,
+        currentEnergy: currentEnergy,
+        attack: baseStats.attack,
+        defense: finalDefense,
+        speed: baseStats.speed,
+        critChance: baseStats.critChance,
+      };
+
+      const { damage, isCritical } = calculateDamage(enemyCombatStats, defenderStats, enemyStats.attack);
+      const critMessage = isCritical ? ' (暴击!)' : '';
+      
+      currentDispatch({ 
+        type: 'EXECUTE_COMBAT_ACTION', 
+        payload: { 
+          action: `🩸 ${currentEnemy.nameCN} 发动攻击！对你造成 ${damage} 点伤害！${critMessage}${defendMessage}`, 
+          damage: -damage 
+        } 
+      });
+    } finally {
+      setTimeout(() => {
+        enemyAttackingRef.current = false;
+      }, 10);
+    }
+  }, []);
 
   const executePlayerAction = useCallback((action: { type: 'attack' | 'skill'; skill?: CombatSkill }) => {
     if (!enemy) return;
@@ -118,12 +226,18 @@ export function CombatScreen() {
     }
 
     const baseDamage = action.type === 'attack'
-      ? playerStats.attack
-      : (action.skill?.value || 0) + Math.floor(playerStats.attack * 0.5);
+      ? playerBaseStats.attack
+      : (action.skill?.value || 0) + Math.floor(playerBaseStats.attack * 0.5);
 
     const attackerStats: CombatStats = {
-      ...playerStats,
+      maxHP: playerBaseStats.maxHP,
+      currentHP: player.combatStats.currentHP,
+      maxEnergy: playerBaseStats.maxEnergy,
+      currentEnergy: player.combatStats.currentEnergy,
       attack: baseDamage,
+      defense: playerBaseStats.defense,
+      speed: playerBaseStats.speed,
+      critChance: playerBaseStats.critChance,
     };
 
     const { damage, isCritical: isCrit } = calculateDamage(attackerStats, enemyCombatStats, baseDamage);
@@ -149,56 +263,29 @@ export function CombatScreen() {
     }
 
     resetPlayerSpeed();
-  }, [enemy, player, playerStats, enemyCurrentHP, dispatch, resetPlayerSpeed]);
-
-  const executeEnemyAttack = useCallback(() => {
-    if (!enemy) return;
-    const enemyStats = computeEnemyStats(enemy);
-    const enemyCombatStats: CombatStats = {
-      ...enemyStats,
-      currentHP: enemyCurrentHP,
-      currentEnergy: enemy.maxEnergy,
-      critChance: Math.max(0, enemy.attributes.luck) * 0.5,
-    };
-
-    let finalDefense = playerStats.defense;
-    let defendMessage = '';
-    
-    if (isDefending) {
-      finalDefense = Math.floor(playerStats.defense * 1.5);
-      defendMessage = ` (防御姿态)`;
-    }
-
-    const defenderStats: CombatStats = {
-      ...playerStats,
-      defense: finalDefense,
-    };
-
-    const { damage, isCritical } = calculateDamage(enemyCombatStats, defenderStats, enemyStats.attack);
-    const critMessage = isCritical ? ' (暴击!)' : '';
-    
-    dispatch({ 
-      type: 'EXECUTE_COMBAT_ACTION', 
-      payload: { 
-        action: `🩸 ${enemy.nameCN} 发动攻击！对你造成 ${damage} 点伤害！${critMessage}${defendMessage}`, 
-        damage: -damage 
-      } 
-    });
-  }, [enemy, playerStats, enemyCurrentHP, isDefending, dispatch]);
+  }, [enemy, enemyCurrentHP, playerBaseStats, player.combatStats.currentHP, player.combatStats.currentEnergy, dispatch, resetPlayerSpeed]);
 
   useEffect(() => {
     if (!enemy) return;
 
+    if (!isInitializedRef.current) {
+      lastTickRef.current = Date.now();
+      enemyAttackingRef.current = false;
+      isInitializedRef.current = true;
+    }
+
     const enemyStats = computeEnemyStats(enemy);
     const tickRate = 50;
-    const basePlayerRate = (playerStats.speed / 100) * combatSpeedMultiplier;
-    const playerRate = isDefending ? basePlayerRate * 0.7 : basePlayerRate;
+    const basePlayerRate = (playerBaseStats.speed / 100) * combatSpeedMultiplier;
     const enemyRate = (enemyStats.speed / 100) * combatSpeedMultiplier;
 
     intervalRef.current = window.setInterval(() => {
       const now = Date.now();
-      const delta = now - lastTickRef.current;
+      const delta = Math.min(now - lastTickRef.current, 100);
       lastTickRef.current = now;
+
+      const currentIsDefending = playerStateRef.current.isDefending;
+      const playerRate = currentIsDefending ? basePlayerRate * 0.7 : basePlayerRate;
 
       setPlayerSpeed(prev => {
         if (prev >= 100) return 100;
@@ -212,15 +299,20 @@ export function CombatScreen() {
         }
         const next = prev + (enemyRate * delta);
         if (next >= 100) {
-          executeEnemyAttack();
+          executeEnemyAttackInternal();
           return 0;
         }
         return next;
       });
     }, tickRate);
 
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [enemy, playerStats.speed, executeEnemyAttack, isDefending, combatSpeedMultiplier]);
+    return () => { 
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [enemy, playerBaseStats.speed, combatSpeedMultiplier, executeEnemyAttackInternal]);
 
   const canAct = playerSpeed >= 100;
   const availableSkills = getAvailableSkills();
@@ -232,7 +324,7 @@ export function CombatScreen() {
         setIsDefending(false);
       } else {
         setIsDefending(true);
-        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你进入防御姿态！(防御减免 ${Math.floor(playerStats.defense * 0.5)} 点，速度槽积累减半)` } });
+        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你进入防御姿态！(防御减免 ${Math.floor(playerBaseStats.defense * 0.5)} 点，速度槽积累减半)` } });
       }
       return;
     }
@@ -374,16 +466,16 @@ export function CombatScreen() {
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>攻击</span>
-                <span className="font-bold" style={{ color: '#dc2626' }}>{playerStats.attack}</span>
+                <span className="font-bold" style={{ color: '#dc2626' }}>{playerBaseStats.attack}</span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>防御</span>
-                <span className="font-bold" style={{ color: '#2563eb' }}>{playerStats.defense}</span>
+                <span className="font-bold" style={{ color: '#2563eb' }}>{playerBaseStats.defense}</span>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: '#7a7a7a' }}>速度</span>
                 <span className="font-bold" style={{ color: '#16a34a' }}>
-                  {playerStats.speed}
+                  {playerBaseStats.speed}
                   {isDefending && <span className="ml-1" style={{ color: '#f59e0b' }}>(x0.7)</span>}
                 </span>
               </div>
