@@ -4,10 +4,10 @@ export default function ActionBar() {
   const dispatch = useGameDispatch();
 
   const buttons = [
+    { icon: '🗺️', label: '总览', modal: 'overview' },
     { icon: '🎒', label: '背包', modal: 'inventory' },
     { icon: '⚔️', label: '装备', modal: 'equipment' },
     { icon: '📜', label: '武学', modal: 'martial' },
-    { icon: '📖', label: '图鉴', modal: 'monster_book' },
     { icon: '📊', label: '属性', modal: 'stats' },
     { icon: '⚙️', label: '设置', modal: 'settings' },
   ];

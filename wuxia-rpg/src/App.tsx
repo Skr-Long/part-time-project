@@ -3,6 +3,7 @@ import './index.css'
 import { GameProvider, useGameSelector, useGameDispatch } from './contexts/GameContext'
 import { getMartialArt } from './data/martialArts'
 import ActionBar from './components/ui/ActionBar'
+import OverviewModal from './components/ui/OverviewModal'
 import InventoryModal from './components/inventory/InventoryModal'
 import EquipmentModal from './components/equipment/EquipmentModal'
 import MartialArtsModal from './components/martial/MartialArtsModal'
@@ -25,6 +26,7 @@ function Header() {
 function ModalRouter() {
   const modalType = useGameSelector(state => state.ui.modals.type)
 
+  if (modalType === 'overview') return <OverviewModal />
   if (modalType === 'inventory') return <InventoryModal />
   if (modalType === 'equipment') return <EquipmentModal />
   if (modalType === 'martial') return <MartialArtsModal />
