@@ -47,8 +47,66 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 1,
     connections: ['forest', 'mountain-path'],
     locationType: 'rest',
+    position: { x: 300, y: 200 },
     restCost: 50,
     restHealPercent: 1.0,
+    subLocations: [
+      {
+        id: 'village-inn',
+        nameCN: '平安客栈',
+        type: 'inn',
+        descriptionCN: '镇上唯一的客栈，提供食宿服务。',
+        icon: '🏨',
+        restCost: 30,
+        interactions: [
+          { type: 'rest', label: '休息', description: '恢复生命和内力' },
+          { type: 'talk', label: '打听消息', description: '向掌柜打听江湖消息' },
+        ],
+      },
+      {
+        id: 'village-blacksmith',
+        nameCN: '王铁匠铺',
+        type: 'blacksmith',
+        descriptionCN: '王师傅的铁匠铺，可以打造和修理武器装备。',
+        icon: '⚒️',
+        interactions: [
+          { type: 'shop', label: '购买装备', description: '查看铁匠铺的商品' },
+          { type: 'talk', label: '闲聊', description: '与王师傅聊天' },
+        ],
+      },
+      {
+        id: 'village-martial',
+        nameCN: '镇武馆',
+        type: 'martial_hall',
+        descriptionCN: '小镇的武馆，传授基础武学。',
+        icon: '🥋',
+        interactions: [
+          { type: 'train', label: '切磋武艺', description: '与馆主切磋，提升技巧' },
+          { type: 'talk', label: '请教武学', description: '请教武学问题' },
+        ],
+      },
+      {
+        id: 'village-shop',
+        nameCN: '杂货铺',
+        type: 'shop',
+        descriptionCN: '李掌柜的杂货铺，售卖各种日用品。',
+        icon: '🏪',
+        interactions: [
+          { type: 'shop', label: '购买物品', description: '查看杂货铺的商品' },
+        ],
+      },
+      {
+        id: 'village-clinic',
+        nameCN: '药铺',
+        type: 'clinic',
+        descriptionCN: '张大夫的药铺，售卖药材和丹丸。',
+        icon: '🏥',
+        interactions: [
+          { type: 'heal', label: '看病', description: '让张大夫诊断治疗' },
+          { type: 'shop', label: '购买丹药', description: '购买药材和丹丸' },
+        ],
+      },
+    ],
   },
   {
     id: 'forest',
@@ -58,6 +116,7 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 1,
     connections: ['village', 'deep-forest'],
     locationType: 'encounter',
+    position: { x: 180, y: 200 },
     encounterPool: ['wolf', 'bandit'],
     encounterChance: 30,
   },
@@ -69,6 +128,7 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 1,
     connections: ['village', 'temple'],
     locationType: 'encounter',
+    position: { x: 420, y: 200 },
     encounterPool: ['mountain-bandit'],
     encounterChance: 25,
   },
@@ -80,6 +140,7 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['forest', 'cave'],
     locationType: 'encounter',
+    position: { x: 80, y: 200 },
     encounterPool: ['wolf', 'shadow-beast'],
     encounterChance: 40,
   },
@@ -91,6 +152,7 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['deep-forest'],
     locationType: 'encounter',
+    position: { x: 80, y: 80 },
     encounterPool: ['cave-spider', 'shadow-beast'],
     encounterChance: 50,
   },
@@ -102,11 +164,39 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['mountain-path'],
     locationType: 'character',
+    position: { x: 420, y: 80 },
     character: {
       id: 'monk-master',
       nameCN: '静心大师',
       descriptionCN: '一位慈眉善目的老僧，武学修为深不可测。',
+      interactions: [
+        { type: 'talk', label: '对话', description: '与静心大师交谈' },
+        { type: 'train', label: '请教武学', description: '向大师请教武学问题' },
+        { type: 'quest', label: '接受任务', description: '看看大师有没有任务托付' },
+      ],
     },
+    subLocations: [
+      {
+        id: 'temple-hall',
+        nameCN: '大雄宝殿',
+        type: 'temple',
+        descriptionCN: '寺庙的主殿，供奉着佛像。',
+        icon: '⛩️',
+        interactions: [
+          { type: 'talk', label: '上香祈福', description: '上香祈福，可能获得好运' },
+        ],
+      },
+      {
+        id: 'temple-martial',
+        nameCN: '藏经阁',
+        type: 'martial_hall',
+        descriptionCN: '收藏武学典籍的阁楼。',
+        icon: '📚',
+        interactions: [
+          { type: 'train', label: '研读武学', description: '研读藏经阁中的武学典籍' },
+        ],
+      },
+    ],
   },
 ];
 

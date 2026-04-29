@@ -138,6 +138,17 @@ export interface PlayerState {
   monsterBook: MonsterBookEntry[];
 }
 
+// --- Character Interaction ---
+export type CharacterInteractionType = 'talk' | 'shop' | 'quest' | 'train' | 'heal';
+
+export interface CharacterInteraction {
+  type: CharacterInteractionType;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
 // --- Character Data ---
 export interface CharacterData {
   id: string;
@@ -145,6 +156,7 @@ export interface CharacterData {
   descriptionCN: string;
   quests?: string[];
   shopInventory?: ShopListing[];
+  interactions?: CharacterInteraction[];
 }
 
 // --- Location Types ---
@@ -158,6 +170,29 @@ export interface ShopListing {
   quantity: number;
 }
 
+// --- Location Position for Map ---
+export interface LocationPosition {
+  x: number;
+  y: number;
+}
+
+// --- Sub Location Type ---
+export type SubLocationType = 'inn' | 'blacksmith' | 'martial_hall' | 'shop' | 'clinic' | 'tavern' | 'stable' | 'temple';
+
+// --- Sub Location ---
+export interface SubLocation {
+  id: string;
+  nameCN: string;
+  type: SubLocationType;
+  descriptionCN: string;
+  icon: string;
+  interactions?: CharacterInteraction[];
+  shopInventory?: ShopListing[];
+  restCost?: number;
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
 // --- Location ---
 export interface Location {
   id: string;
@@ -167,6 +202,7 @@ export interface Location {
   zone: number;
   connections: string[];
   locationType: LocationType;
+  position: LocationPosition;
   character?: CharacterData;
   events?: string[];
   encounterPool?: string[];
@@ -174,6 +210,7 @@ export interface Location {
   shopInventory?: ShopListing[];
   restCost?: number;
   restHealPercent?: number;
+  subLocations?: SubLocation[];
 }
 
 // --- Loot Entry ---

@@ -13,6 +13,7 @@ import SettingsModal from './components/ui/SettingsModal'
 import TitleScreen from './screens/TitleScreen'
 import CharacterCreationScreen from './screens/CharacterCreationScreen'
 import { ExplorationScreen } from './screens/ExplorationScreen'
+import { ExplorationMapScreen } from './screens/ExplorationMapScreen'
 import { CombatScreen } from './screens/CombatScreen'
 
 function Header() {
@@ -221,9 +222,9 @@ function AppContent() {
   }
   if (gamePhase === 'exploration') {
     return (
-      <div className="min-h-screen pb-20">
+      <div className="min-h-screen">
         <Header />
-        <ExplorationScreen />
+        <ExplorationMapScreen />
         {showActionBar && <ActionBar />}
         <ModalRouter />
       </div>
