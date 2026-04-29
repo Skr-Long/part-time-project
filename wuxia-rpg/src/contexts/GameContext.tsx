@@ -195,10 +195,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         let newExp = state.player.exp + rewards.exp;
         let newLevel = state.player.level;
         let newExpToNext = state.player.expToNext;
+        let levelsGained = 0;
         while (newExp >= newExpToNext) {
           newLevel++;
           newExpToNext = Math.floor(newExpToNext * 1.5);
+          levelsGained++;
         }
+        const newFreeAttributePoints = state.player.freeAttributePoints + levelsGained * 5;
         const newCombatStats = calculateCombatStats(state.player.attributes, newLevel, state.player.knownTechniques);
         
         newState.player = {
@@ -206,6 +209,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           exp: newExp,
           level: newLevel,
           expToNext: newExpToNext,
+          freeAttributePoints: newFreeAttributePoints,
           gold: state.player.gold + rewards.gold,
           inventory: [...state.player.inventory, ...rewards.items],
           combatStats: newCombatStats,
@@ -377,25 +381,39 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const newExp = state.player.exp + action.payload.amount;
       let newLevel = state.player.level;
       let newExpToNext = state.player.expToNext;
+      let levelsGained = 0;
       while (newExp >= newExpToNext) {
         newLevel++;
         newExpToNext = Math.floor(newExpToNext * 1.5);
+        levelsGained++;
       }
+      const newFreeAttributePoints = state.player.freeAttributePoints + levelsGained * 5;
       const newCombatStats = calculateCombatStats(state.player.attributes, newLevel, state.player.knownTechniques);
       const preservedCurrentHP = Math.min(state.player.combatStats.currentHP, newCombatStats.maxHP);
       const preservedCurrentEnergy = Math.min(state.player.combatStats.currentEnergy, newCombatStats.maxEnergy);
+      
+      let notifications = [...state.ui.notifications];
+      if (levelsGained > 0) {
+        notifications.push(`升级了！获得 ${levelsGained * 5} 点自由属性点`);
+      }
+      
       return {
         ...state,
         player: { 
           ...state.player, 
           exp: newExp, 
           level: newLevel, 
-          expToNext: newExpToNext, 
+          expToNext: newExpToNext,
+          freeAttributePoints: newFreeAttributePoints,
           combatStats: { 
             ...newCombatStats, 
             currentHP: preservedCurrentHP,
             currentEnergy: preservedCurrentEnergy
           } 
+        },
+        ui: {
+          ...state.ui,
+          notifications,
         },
       };
     }
@@ -647,6 +665,67 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ui: {
           ...state.ui,
           notifications: [...state.ui.notifications, `购买了 ${item.nameCN}`],
+        },
+      };
+    }
+
+    case 'ALLOCATE_ATTRIBUTE_POINT': {
+      if (state.player.freeAttributePoints <= 0) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, '没有可用的自由属性点'],
+          },
+        };
+      }
+      
+      const attr = action.payload.attribute;
+      const currentValue = state.player.attributes[attr];
+      
+      if (currentValue >= 10) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, '该属性已达到上限'],
+          },
+        };
+      }
+      
+      const newAttributes = {
+        ...state.player.attributes,
+        [attr]: currentValue + 1,
+      };
+      
+      const newCombatStats = calculateCombatStats(newAttributes, state.player.level, state.player.knownTechniques);
+      const preservedCurrentHP = Math.min(state.player.combatStats.currentHP, newCombatStats.maxHP);
+      const preservedCurrentEnergy = Math.min(state.player.combatStats.currentEnergy, newCombatStats.maxEnergy);
+      
+      const attrLabels: Record<string, string> = {
+        insight: '悟性',
+        constitution: '体质',
+        strength: '力量',
+        agility: '敏捷',
+        physique: '根骨',
+        luck: '福缘',
+      };
+      
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          attributes: newAttributes,
+          freeAttributePoints: state.player.freeAttributePoints - 1,
+          combatStats: {
+            ...newCombatStats,
+            currentHP: preservedCurrentHP,
+            currentEnergy: preservedCurrentEnergy,
+          },
+        },
+        ui: {
+          ...state.ui,
+          notifications: [...state.ui.notifications, `${attrLabels[attr]} +1`],
         },
       };
     }

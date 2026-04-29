@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useGameSelector, useGameDispatch } from '../../contexts/GameContext';
-import type { EquipmentItem, InventoryItem as InventoryItemType, EquipmentSlots } from '../../types';
+import type { EquipmentItem, InventoryItem as InventoryItemType, EquipmentSlots, Attributes } from '../../types';
 import { checkEquipmentRequirements, formatItemEffects, getTotalEquipmentEffects } from '../../utils/equipment';
 import { calculateBaseCombatStats } from '../../utils/attributes';
+import { calculatePassiveBonuses } from '../../data/martialArts';
 import { EQUIPMENT_RARITY_INFO } from '../../types';
 
 const SLOT_INFO: Record<'weapon' | 'armor' | 'accessory', { name: string; icon: string }> = {
@@ -15,6 +16,33 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
   weapon: '武器',
   armor: '防具',
   accessory: '饰品',
+};
+
+const ATTR_LABELS: Record<string, string> = {
+  insight: '悟性',
+  constitution: '体质',
+  strength: '力量',
+  agility: '敏捷',
+  physique: '根骨',
+  luck: '福缘',
+};
+
+const ATTR_ICONS: Record<string, string> = {
+  insight: '🧠',
+  constitution: '❤️',
+  strength: '💪',
+  agility: '⚡',
+  physique: '🛡️',
+  luck: '🍀',
+};
+
+const ATTR_COLORS: Record<string, string> = {
+  insight: '#8b5cf6',
+  constitution: '#dc2626',
+  strength: '#f59e0b',
+  agility: '#16a34a',
+  physique: '#2563eb',
+  luck: '#c9a227',
 };
 
 interface StatsComparison {
@@ -31,6 +59,20 @@ interface StatsComparisons {
   speed: StatsComparison;
   maxEnergy: StatsComparison;
   critChance: StatsComparison;
+}
+
+interface AttributeBreakdown {
+  base: number;
+  martialArtsBonus: number;
+  equipmentBonus: number;
+  total: number;
+}
+
+interface CombatStatBreakdown {
+  baseFromAttrs: number;
+  martialArtsBonus: number;
+  equipmentBonus: number;
+  total: number;
 }
 
 type StatKey = keyof StatsComparisons;
@@ -90,9 +132,78 @@ export default function CharacterPanel() {
   const [previewItem, setPreviewItem] = useState<EquipmentItem | null>(null);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
+  const martialArtsBonuses = useMemo(() => {
+    return calculatePassiveBonuses(player.knownTechniques);
+  }, [player.knownTechniques]);
+
+  const equipmentEffects = useMemo(() => {
+    return getTotalEquipmentEffects(player.equipment);
+  }, [player.equipment]);
+
+  const effectiveAttributes = useMemo((): Record<keyof Attributes, AttributeBreakdown> => {
+    const result: Partial<Record<keyof Attributes, AttributeBreakdown>> = {};
+    const attrs: Array<keyof Attributes> = ['insight', 'constitution', 'strength', 'agility', 'physique', 'luck'];
+    
+    attrs.forEach(attr => {
+      const base = player.attributes[attr];
+      const martialArtsBonus = martialArtsBonuses.attributeBonuses[attr] || 0;
+      const equipmentBonus = equipmentEffects.attributeBonus?.[attr] || 0;
+      
+      result[attr] = {
+        base,
+        martialArtsBonus,
+        equipmentBonus,
+        total: base + martialArtsBonus + equipmentBonus,
+      };
+    });
+    
+    return result as Record<keyof Attributes, AttributeBreakdown>;
+  }, [player.attributes, martialArtsBonuses, equipmentEffects]);
+
   const baseStats = useMemo(() => {
-    return calculateBaseCombatStats(player.attributes, player.level);
-  }, [player.attributes, player.level]);
+    const attrsForCalc = {
+      insight: effectiveAttributes.insight.total,
+      constitution: effectiveAttributes.constitution.total,
+      strength: effectiveAttributes.strength.total,
+      agility: effectiveAttributes.agility.total,
+      physique: effectiveAttributes.physique.total,
+      luck: effectiveAttributes.luck.total,
+    };
+    return calculateBaseCombatStats(attrsForCalc, player.level);
+  }, [effectiveAttributes, player.level]);
+
+  const combatStatBreakdown = useMemo((): Record<StatKey, CombatStatBreakdown> => {
+    const mapping: Array<{ 
+      key: StatKey; 
+      baseKey: keyof typeof baseStats;
+      martialArtsKey: keyof typeof martialArtsBonuses.combatBonuses;
+      equipmentKey: keyof Pick<typeof equipmentEffects, 'attackBonus' | 'defenseBonus' | 'speedBonus' | 'maxHPBonus' | 'maxEnergyBonus' | 'critChanceBonus'>;
+    }> = [
+      { key: 'maxHP', baseKey: 'maxHP', martialArtsKey: 'maxHP', equipmentKey: 'maxHPBonus' },
+      { key: 'attack', baseKey: 'attack', martialArtsKey: 'attack', equipmentKey: 'attackBonus' },
+      { key: 'defense', baseKey: 'defense', martialArtsKey: 'defense', equipmentKey: 'defenseBonus' },
+      { key: 'speed', baseKey: 'speed', martialArtsKey: 'speed', equipmentKey: 'speedBonus' },
+      { key: 'maxEnergy', baseKey: 'maxEnergy', martialArtsKey: 'maxEnergy', equipmentKey: 'maxEnergyBonus' },
+      { key: 'critChance', baseKey: 'critChance', martialArtsKey: 'critChance', equipmentKey: 'critChanceBonus' },
+    ];
+
+    const result: Partial<Record<StatKey, CombatStatBreakdown>> = {};
+    
+    mapping.forEach(({ key, baseKey, martialArtsKey, equipmentKey }) => {
+      const baseFromAttrs = baseStats[baseKey];
+      const martialArtsBonus = martialArtsBonuses.combatBonuses[martialArtsKey] || 0;
+      const equipmentBonus = equipmentEffects[equipmentKey] || 0;
+      
+      result[key] = {
+        baseFromAttrs,
+        martialArtsBonus,
+        equipmentBonus,
+        total: baseFromAttrs + martialArtsBonus + equipmentBonus,
+      };
+    });
+    
+    return result as Record<StatKey, CombatStatBreakdown>;
+  }, [baseStats, martialArtsBonuses, equipmentEffects]);
 
   const currentStats = useMemo(() => {
     return calculateStatsWithEquipment(baseStats, player.equipment);
@@ -167,6 +278,10 @@ export default function CharacterPanel() {
     dispatch({ type: 'UNEQUIP_ITEM', payload: { slot } });
   };
 
+  const handleAllocateAttribute = (attr: keyof Attributes) => {
+    dispatch({ type: 'ALLOCATE_ATTRIBUTE_POINT', payload: { attribute: attr } });
+  };
+
   const getEquipCheck = (item: EquipmentItem) => {
     return checkEquipmentRequirements(
       item,
@@ -196,12 +311,65 @@ export default function CharacterPanel() {
     );
   };
 
-  const renderStatRow = (
+  const renderAttributeRow = (attr: keyof Attributes) => {
+    const breakdown = effectiveAttributes[attr];
+    const hasFreePoints = player.freeAttributePoints > 0;
+    const isMaxed = player.attributes[attr] >= 10;
+    const canAllocate = hasFreePoints && !isMaxed;
+
+    return (
+      <div 
+        key={attr}
+        className="flex items-center justify-between py-1.5 px-2 rounded text-sm"
+        style={{ backgroundColor: 'rgba(255, 255, 255, 0.3)' }}
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm">{ATTR_ICONS[attr]}</span>
+          <span style={{ color: '#7a7a7a' }}>{ATTR_LABELS[attr]}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold" style={{ color: ATTR_COLORS[attr] }}>
+            {breakdown.total}
+          </span>
+          <div className="flex items-center text-xs">
+            <span style={{ color: '#4a4a4a' }}>(</span>
+            <span style={{ color: '#1a1a1a' }}>{breakdown.base}</span>
+            {breakdown.martialArtsBonus > 0 && (
+              <span style={{ color: '#8b5cf6' }}>+{breakdown.martialArtsBonus}</span>
+            )}
+            {breakdown.equipmentBonus > 0 && (
+              <span style={{ color: '#4a7c59' }}>+{breakdown.equipmentBonus}</span>
+            )}
+            <span style={{ color: '#4a4a4a' }}>)</span>
+          </div>
+          {hasFreePoints && (
+            <button
+              onClick={() => handleAllocateAttribute(attr)}
+              disabled={!canAllocate}
+              className="w-5 h-5 flex items-center justify-center rounded text-xs font-bold transition-colors"
+              style={{
+                backgroundColor: canAllocate ? 'rgba(74, 124, 89, 0.15)' : 'rgba(122, 122, 122, 0.1)',
+                color: canAllocate ? '#4a7c59' : '#9ca3af',
+                cursor: canAllocate ? 'pointer' : 'not-allowed',
+              }}
+              title={isMaxed ? '该属性已达到上限' : '分配属性点'}
+            >
+              +
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCombatStatRow = (
     label: string, 
     icon: string, 
     key: StatKey,
-    comparison: StatsComparison | null
+    comparison?: StatsComparison | null
   ) => {
+    const breakdown = combatStatBreakdown[key];
+    
     if (!comparison) {
       return (
         <div className="flex items-center justify-between py-2 px-3 rounded" style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)' }}>
@@ -209,14 +377,27 @@ export default function CharacterPanel() {
             <span>{icon}</span>
             <span style={{ color: '#4a4a4a' }}>{label}</span>
           </div>
-          <span className="font-bold" style={{ color: '#1a1a1a' }}>{currentStats[key]}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold" style={{ color: '#1a1a1a' }}>{breakdown.total}</span>
+            <div className="flex items-center text-xs">
+              <span style={{ color: '#4a4a4a' }}>(</span>
+              <span style={{ color: '#1a1a1a' }}>{breakdown.baseFromAttrs}</span>
+              {breakdown.martialArtsBonus > 0 && (
+                <span style={{ color: '#8b5cf6' }}>+{breakdown.martialArtsBonus}</span>
+              )}
+              {breakdown.equipmentBonus > 0 && (
+                <span style={{ color: '#4a7c59' }}>+{breakdown.equipmentBonus}</span>
+              )}
+              <span style={{ color: '#4a4a4a' }}>)</span>
+            </div>
+          </div>
         </div>
       );
     }
 
     const comp = comparison;
-    const hasDiff = comp.diff !== 0;
-    const isPositive = comp.diff > 0;
+    const hasDiff = comp && comp.diff !== 0;
+    const isPositive = hasDiff && comp.diff > 0;
 
     return (
       <div className="flex items-center justify-between py-2 px-3 rounded" style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)' }}>
@@ -252,7 +433,17 @@ export default function CharacterPanel() {
         }}
       >
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
-          <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>角色</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>角色</h2>
+            {player.freeAttributePoints > 0 && (
+              <span 
+                className="px-2 py-0.5 rounded text-sm font-bold"
+                style={{ backgroundColor: '#dc2626', color: '#fff' }}
+              >
+                自由属性点: {player.freeAttributePoints}
+              </span>
+            )}
+          </div>
           <button
             onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center transition-colors"
@@ -263,7 +454,7 @@ export default function CharacterPanel() {
         </div>
 
         <div className="flex flex-1 overflow-hidden" style={{ maxHeight: '70vh' }}>
-          <div className="w-64 p-4 border-r overflow-y-auto" style={{ borderColor: 'rgba(122, 122, 122, 0.2)' }}>
+          <div className="w-72 p-4 border-r overflow-y-auto" style={{ borderColor: 'rgba(122, 122, 122, 0.2)' }}>
             <div className="text-center mb-4">
               <div className="text-4xl mb-2">🧑</div>
               <div className="font-serif text-lg font-bold" style={{ color: '#1a1a1a' }}>{player.name}</div>
@@ -289,25 +480,48 @@ export default function CharacterPanel() {
                   }} 
                 />
               </div>
+              <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                下次升级获得 5 点自由属性点
+              </div>
             </div>
 
-            <div className="space-y-2 mb-4">
-              <h3 className="font-serif font-bold text-sm" style={{ color: '#1a1a1a' }}>基础属性</h3>
-              {[
-                { key: 'insight' as const, label: '悟性', icon: '🧠', color: '#8b5cf6' },
-                { key: 'constitution' as const, label: '体质', icon: '❤️', color: '#dc2626' },
-                { key: 'strength' as const, label: '力量', icon: '💪', color: '#f59e0b' },
-                { key: 'agility' as const, label: '敏捷', icon: '⚡', color: '#16a34a' },
-                { key: 'physique' as const, label: '根骨', icon: '🛡️', color: '#2563eb' },
-                { key: 'luck' as const, label: '福缘', icon: '🍀', color: '#c9a227' },
-              ].map(attr => (
-                <div key={attr.key} className="flex items-center justify-between py-1 px-2 rounded text-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.3)' }}>
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm">{attr.icon}</span>
-                    <span style={{ color: '#7a7a7a' }}>{attr.label}</span>
-                  </div>
-                  <span className="font-bold" style={{ color: attr.color }}>{player.attributes[attr.key]}</span>
+            {player.freeAttributePoints > 0 && (
+              <div 
+                className="mb-4 p-3 rounded border"
+                style={{ 
+                  backgroundColor: 'rgba(220, 38, 38, 0.05)',
+                  borderColor: 'rgba(220, 38, 38, 0.3)',
+                }}
+              >
+                <div className="text-sm font-bold mb-2" style={{ color: '#dc2626' }}>
+                  ⚠️ 剩余 {player.freeAttributePoints} 点属性点未分配
                 </div>
+                <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                  点击属性右侧的 + 按钮进行分配
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-serif font-bold text-sm" style={{ color: '#1a1a1a' }}>基础属性</h3>
+                <div className="flex gap-3 text-xs">
+                  <span style={{ color: '#7a7a7a' }}>
+                    <span className="inline-block w-3 h-3 rounded mr-1" style={{ backgroundColor: '#1a1a1a' }}></span>
+                    基础值
+                  </span>
+                  <span style={{ color: '#7a7a7a' }}>
+                    <span className="inline-block w-3 h-3 rounded mr-1" style={{ backgroundColor: '#8b5cf6' }}></span>
+                    武学
+                  </span>
+                  <span style={{ color: '#7a7a7a' }}>
+                    <span className="inline-block w-3 h-3 rounded mr-1" style={{ backgroundColor: '#4a7c59' }}></span>
+                    装备
+                  </span>
+                </div>
+              </div>
+              {(['insight', 'constitution', 'strength', 'agility', 'physique', 'luck'] as const).map(attr => (
+                renderAttributeRow(attr)
               ))}
             </div>
 
@@ -320,12 +534,12 @@ export default function CharacterPanel() {
                   </span>
                 )}
               </h3>
-              {renderStatRow('生命值', '❤️', 'maxHP', statComparisons?.maxHP || null)}
-              {renderStatRow('内功值', '💫', 'maxEnergy', statComparisons?.maxEnergy || null)}
-              {renderStatRow('攻击力', '⚔️', 'attack', statComparisons?.attack || null)}
-              {renderStatRow('防御力', '🛡️', 'defense', statComparisons?.defense || null)}
-              {renderStatRow('速度', '💨', 'speed', statComparisons?.speed || null)}
-              {renderStatRow('暴击率', '🎯', 'critChance', statComparisons?.critChance || null)}
+              {renderCombatStatRow('生命值', '❤️', 'maxHP', statComparisons?.maxHP || null)}
+              {renderCombatStatRow('内功值', '💫', 'maxEnergy', statComparisons?.maxEnergy || null)}
+              {renderCombatStatRow('攻击力', '⚔️', 'attack', statComparisons?.attack || null)}
+              {renderCombatStatRow('防御力', '🛡️', 'defense', statComparisons?.defense || null)}
+              {renderCombatStatRow('速度', '💨', 'speed', statComparisons?.speed || null)}
+              {renderCombatStatRow('暴击率', '🎯', 'critChance', statComparisons?.critChance || null)}
             </div>
           </div>
 

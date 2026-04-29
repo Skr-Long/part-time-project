@@ -221,6 +221,7 @@ export interface PlayerState {
   expToNext: number;
   gold: number; // stored as copper
   attributes: Attributes;
+  freeAttributePoints: number;
   combatStats: CombatStats;
   inventory: InventoryItem[];
   equipment: EquipmentSlots;
@@ -597,4 +598,5 @@ export type GameAction =
   | { type: 'INIT_PLAYER_STATS'; payload: { name: string; attributes: Attributes } }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<MetaState['settings']> }
   | { type: 'CRAFT_ITEM'; payload: { recipeId: string } }
-  | { type: 'PURCHASE_ITEM'; payload: { itemId: string; price: number } };
+  | { type: 'PURCHASE_ITEM'; payload: { itemId: string; price: number } }
+  | { type: 'ALLOCATE_ATTRIBUTE_POINT'; payload: { attribute: keyof Attributes } };

@@ -44,6 +44,7 @@ function createInitialPlayer(): PlayerState {
     expToNext: 100,
     gold: 1000,
     attributes,
+    freeAttributePoints: 0,
     combatStats,
     inventory: createInitialInventory(),
     equipment: { weapon: null, armor: null, accessory: null },
