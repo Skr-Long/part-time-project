@@ -139,7 +139,7 @@ export interface PlayerState {
 }
 
 // --- Character Interaction ---
-export type CharacterInteractionType = 'talk' | 'shop' | 'quest' | 'train' | 'heal';
+export type CharacterInteractionType = 'talk' | 'shop' | 'quest' | 'train' | 'heal' | 'rest';
 
 export interface CharacterInteraction {
   type: CharacterInteractionType;

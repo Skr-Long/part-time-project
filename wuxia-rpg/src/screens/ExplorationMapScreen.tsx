@@ -40,20 +40,6 @@ function getLocationTypeLabel(type: string): string {
   }
 }
 
-function getSubLocationTypeIcon(type: string): string {
-  switch (type) {
-    case 'inn': return '🏨';
-    case 'blacksmith': return '⚒️';
-    case 'martial_hall': return '🥋';
-    case 'shop': return '🏪';
-    case 'clinic': return '🏥';
-    case 'tavern': return '🍺';
-    case 'stable': return '🐴';
-    case 'temple': return '⛩️';
-    default: return '📍';
-  }
-}
-
 function getInteractionIcon(type: string): string {
   switch (type) {
     case 'talk': return '💬';
@@ -126,7 +112,7 @@ export function ExplorationMapScreen() {
     dispatch({ type: 'START_COMBAT', payload: { enemy } });
   };
 
-  const handleInteraction = (interaction: CharacterInteraction, source: 'character' | 'subLocation') => {
+  const handleInteraction = (interaction: CharacterInteraction) => {
     switch (interaction.type) {
       case 'rest':
         const subLoc = selectedSubLocation;
@@ -589,7 +575,7 @@ export function ExplorationMapScreen() {
                         {selectedSubLocation.interactions.map((interaction, idx) => (
                           <button
                             key={idx}
-                            onClick={() => handleInteraction(interaction, 'subLocation')}
+                            onClick={() => handleInteraction(interaction)}
                             disabled={interaction.disabled}
                             className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
                             style={{
@@ -633,7 +619,7 @@ export function ExplorationMapScreen() {
                       {currentLocation.character.interactions.map((interaction, idx) => (
                         <button
                           key={idx}
-                          onClick={() => handleInteraction(interaction, 'character')}
+                          onClick={() => handleInteraction(interaction)}
                           disabled={interaction.disabled}
                           className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
                           style={{

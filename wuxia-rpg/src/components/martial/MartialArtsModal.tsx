@@ -32,13 +32,6 @@ const TYPE_NAMES: Record<MartialArt['type'], string> = {
   special: '特殊',
 };
 
-const TYPE_COLORS: Record<MartialArt['type'], { bg: string; text: string; border: string }> = {
-  internal: { bg: 'rgba(139, 92, 246, 0.1)', text: '#8b5cf6', border: 'rgba(139, 92, 246, 0.3)' },
-  external: { bg: 'rgba(30, 64, 175, 0.1)', text: '#1e40af', border: 'rgba(30, 64, 175, 0.3)' },
-  weapon: { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
-  special: { bg: 'rgba(236, 72, 153, 0.1)', text: '#ec4899', border: 'rgba(236, 72, 153, 0.3)' },
-};
-
 const SOURCE_TYPE_NAMES: Record<string, string> = {
   initial: '初始',
   event: '奇遇',
@@ -313,10 +306,6 @@ export default function MartialArtsModal() {
     player.completedEvents,
     player.gold
   );
-
-  const getTechniqueLevel = (techId: string) => {
-    return player.techniqueLevels.find(t => t.techniqueId === techId);
-  };
 
   const filteredArts = activeTab === 'all'
     ? visibleArts
