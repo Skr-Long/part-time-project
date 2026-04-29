@@ -17,13 +17,15 @@ export class GameScene extends Phaser.Scene {
   private playerBullets!: Phaser.Physics.Arcade.Group
   private enemyBullets!: Phaser.Physics.Arcade.Group
 
-  private worldWidth!: number
-  private worldHeight!: number
+  private worldWidth: number = 3000
+  private worldHeight: number = 2000
 
   private pointer!: Phaser.Input.Pointer
   private isPointerDown: boolean = false
 
   private isPaused: boolean = false
+
+  private backgroundDecorations: Phaser.GameObjects.Group | null = null
 
   constructor() {
     super({ key: 'GameScene' })
@@ -33,11 +35,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    const width = this.scale.width
-    const height = this.scale.height
-    this.worldWidth = width * 2
-    this.worldHeight = height * 2
-
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight)
     this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight)
 
@@ -92,9 +89,52 @@ export class GameScene extends Phaser.Scene {
       this.physics.world.timeScale = this.isPaused ? 0 : 1
     })
 
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08)
+    this.cameras.main.setZoom(1)
 
     this.setupCollisions()
+
+    this.cameras.main.fadeIn(500, 0, 0, 0)
+  }
+
+  private createBackground(width: number, height: number): void {
+    const graphics = this.add.graphics()
+    graphics.fillStyle(0x1a1a2e, 1)
+    graphics.fillRect(0, 0, width, height)
+
+    graphics.lineStyle(1, 0x2a2a4e, 0.3)
+    const gridSize = 60
+    for (let x = 0; x <= width; x += gridSize) {
+      graphics.lineBetween(x, 0, x, height)
+    }
+    for (let y = 0; y <= height; y += gridSize) {
+      graphics.lineBetween(0, y, width, y)
+    }
+
+    this.addBackgroundDecorations(width, height)
+  }
+
+  private addBackgroundDecorations(width: number, height: number): void {
+    this.backgroundDecorations = this.add.group()
+
+    for (let i = 0; i < 30; i++) {
+      const x = Phaser.Math.FloatBetween(100, width - 100)
+      const y = Phaser.Math.FloatBetween(100, height - 100)
+      const size = Phaser.Math.FloatBetween(20, 60)
+      const isCircle = Phaser.Math.Between(0, 1) === 0
+
+      let decoration: Phaser.GameObjects.Shape
+      if (isCircle) {
+        decoration = this.add.circle(x, y, size / 2, 0x0f3460, 0.15)
+        ;(decoration as Phaser.GameObjects.Arc).setStrokeStyle(1, 0x00d9ff, 0.2)
+      } else {
+        decoration = this.add.rectangle(x, y, size, size, 0x0f3460, 0.15)
+        decoration.rotation = Phaser.Math.FloatBetween(0, Math.PI / 4)
+        decoration.setStrokeStyle(1, 0xe94560, 0.2)
+      }
+
+      this.backgroundDecorations!.add(decoration)
+    }
   }
 
   private setupCollisions(): void {
@@ -213,18 +253,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   private addDeathEffect(x: number, y: number): void {
-    const particles = this.add.particles(x, y, 'enemy', {
-      speed: { min: -100, max: 100 },
-      scale: { start: 0.5, end: 0 },
-      lifespan: 500,
-      tint: 0xe94560,
-      quantity: 10,
-      on: true
-    })
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8
+      const distance = Phaser.Math.FloatBetween(20, 60)
+      const endX = x + Math.cos(angle) * distance
+      const endY = y + Math.sin(angle) * distance
 
-    this.time.delayedCall(500, () => {
-      particles.destroy()
-    })
+      const particle = this.add.circle(x, y, 4, 0xe94560)
+      particle.setStrokeStyle(1, 0xff6464)
+
+      this.tweens.add({
+        targets: particle,
+        x: endX,
+        y: endY,
+        alpha: 0,
+        scale: 0,
+        duration: 400,
+        ease: 'Sine.easeOut',
+        onComplete: () => {
+          particle.destroy()
+        }
+      })
+    }
   }
 
   private handlePlayerDeath(): void {
@@ -250,7 +300,7 @@ export class GameScene extends Phaser.Scene {
   private updatePlayerMovement(): void {
     const velocity = this.player.getVelocity()
 
-    if (velocity.x === 0 && velocity.y === 0) {
+    if (Math.abs(velocity.x) < 1 && Math.abs(velocity.y) < 1) {
       this.player.setIdle()
     } else {
       this.player.setMoving()
@@ -314,28 +364,18 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  private createBackground(width: number, height: number): void {
-    const graphics = this.add.graphics()
-    graphics.fillStyle(0x1a1a2e, 1)
-    graphics.fillRect(0, 0, width, height)
-
-    graphics.lineStyle(1, 0x2a2a4e, 0.5)
-    const gridSize = 50
-    for (let x = 0; x <= width; x += gridSize) {
-      graphics.lineBetween(x, 0, x, height)
-    }
-    for (let y = 0; y <= height; y += gridSize) {
-      graphics.lineBetween(0, y, width, y)
-    }
-  }
-
   private createWalls(width: number, height: number): void {
-    const wallThickness = 40
+    const wallThickness = 60
 
     const topWall = this.add.rectangle(width / 2, wallThickness / 2, width, wallThickness, 0x16213e)
     const bottomWall = this.add.rectangle(width / 2, height - wallThickness / 2, width, wallThickness, 0x16213e)
     const leftWall = this.add.rectangle(wallThickness / 2, height / 2, wallThickness, height, 0x16213e)
     const rightWall = this.add.rectangle(width - wallThickness / 2, height / 2, wallThickness, height, 0x16213e)
+
+    topWall.setStrokeStyle(4, 0x00d9ff, 0.5)
+    bottomWall.setStrokeStyle(4, 0x00d9ff, 0.5)
+    leftWall.setStrokeStyle(4, 0xe94560, 0.5)
+    rightWall.setStrokeStyle(4, 0xe94560, 0.5)
 
     this.walls.add(topWall)
     this.walls.add(bottomWall)
@@ -345,19 +385,26 @@ export class GameScene extends Phaser.Scene {
 
   private createObstacles(width: number, height: number): void {
     const obstaclePositions = [
-      { x: 300, y: 300, w: 100, h: 150 },
-      { x: 800, y: 250, w: 150, h: 100 },
-      { x: 500, y: 600, w: 200, h: 80 },
-      { x: 1200, y: 400, w: 120, h: 200 },
-      { x: 1600, y: 200, w: 180, h: 100 },
-      { x: 1400, y: 700, w: 100, h: 150 },
-      { x: 2000, y: 500, w: 150, h: 120 },
-      { x: 900, y: 900, w: 200, h: 100 }
+      { x: 300, y: 300, w: 120, h: 180 },
+      { x: 800, y: 250, w: 180, h: 120 },
+      { x: 500, y: 600, w: 240, h: 100 },
+      { x: 1200, y: 400, w: 150, h: 240 },
+      { x: 1600, y: 200, w: 220, h: 120 },
+      { x: 1400, y: 700, w: 130, h: 180 },
+      { x: 2000, y: 500, w: 180, h: 150 },
+      { x: 900, y: 900, w: 240, h: 120 },
+      { x: 2200, y: 800, w: 200, h: 160 },
+      { x: 2500, y: 400, w: 160, h: 200 },
+      { x: 400, y: 1200, w: 180, h: 140 },
+      { x: 1000, y: 1400, w: 220, h: 120 },
+      { x: 1800, y: 1200, w: 200, h: 180 },
+      { x: 2400, y: 1500, w: 160, h: 200 },
+      { x: 700, y: 1600, w: 180, h: 150 }
     ]
 
     obstaclePositions.forEach(pos => {
       const obstacle = this.add.rectangle(pos.x, pos.y, pos.w, pos.h, 0x0f3460)
-      obstacle.setStrokeStyle(2, 0x00d9ff)
+      obstacle.setStrokeStyle(3, 0x00d9ff)
       this.walls.add(obstacle)
     })
   }
