@@ -232,16 +232,23 @@ export default function ShopModal({ shopInventory, shopName }: ShopModalProps) {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 p-2 border-b overflow-x-auto" style={{ borderColor: 'rgba(122, 122, 122, 0.2)' }}>
+        <div 
+          className="flex gap-1 p-3 border-b overflow-x-auto flex-shrink-0" 
+          style={{ 
+            borderColor: 'rgba(122, 122, 122, 0.2)',
+            backgroundColor: 'rgba(26, 26, 26, 0.03)',
+            minHeight: '50px',
+          }}
+        >
           {TABS.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className="px-3 py-1.5 text-sm rounded transition-colors whitespace-nowrap"
+              className="px-4 py-2 text-sm rounded transition-colors whitespace-nowrap"
               style={
                 activeTab === tab.key
-                  ? { backgroundColor: '#1a1a1a', color: '#f5f0e6' }
-                  : { backgroundColor: '#e8e0d0', color: '#4a4a4a' }
+                  ? { backgroundColor: '#1a1a1a', color: '#f5f0e6', minHeight: '32px' }
+                  : { backgroundColor: 'rgba(232, 224, 208, 0.8)', color: '#4a4a4a', minHeight: '32px' }
               }
             >
               {tab.label}
