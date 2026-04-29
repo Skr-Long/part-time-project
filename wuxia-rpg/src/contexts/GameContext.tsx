@@ -51,6 +51,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         });
       }
       
+      const playerSnapshot = {
+        currentHP: state.player.combatStats.currentHP,
+        currentEnergy: state.player.combatStats.currentEnergy,
+      };
+      
       return {
         ...state,
         ui: { ...state.ui, gamePhase: 'combat' },
@@ -74,6 +79,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           }],
           isPlayerTurn: true,
           combatRewards: null,
+          playerSnapshot,
         },
       };
     }
@@ -198,6 +204,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
         newState.ui = { ...state.ui, gamePhase: 'victory' };
       } else {
+        if (state.combat.playerSnapshot) {
+          newState.player = {
+            ...state.player,
+            combatStats: {
+              ...state.player.combatStats,
+              currentHP: state.combat.playerSnapshot.currentHP,
+              currentEnergy: state.combat.playerSnapshot.currentEnergy,
+            },
+          };
+        }
         newState.combat = { ...state.combat, isActive: false, isPlayerTurn: false };
         newState.ui = { ...state.ui, gamePhase: 'game_over' };
       }

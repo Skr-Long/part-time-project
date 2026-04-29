@@ -211,6 +211,12 @@ export interface CombatRewards {
   items: InventoryItem[];
 }
 
+// --- Player Combat Snapshot ---
+export interface PlayerCombatSnapshot {
+  currentHP: number;
+  currentEnergy: number;
+}
+
 // --- Combat State ---
 export interface CombatState {
   isActive: boolean;
@@ -221,6 +227,7 @@ export interface CombatState {
   combatLog: CombatLogEntry[];
   isPlayerTurn: boolean;
   combatRewards: CombatRewards | null;
+  playerSnapshot?: PlayerCombatSnapshot | null;
 }
 
 export type MartialArtSourceType = 'event' | 'purchase' | 'insight' | 'initial';
