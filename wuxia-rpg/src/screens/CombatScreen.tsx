@@ -184,7 +184,6 @@ export function CombatScreen() {
         damage: -damage 
       } 
     });
-    setEnemySpeed(0);
   }, [enemy, playerStats, enemyCurrentHP, isDefending, dispatch]);
 
   useEffect(() => {
@@ -209,7 +208,6 @@ export function CombatScreen() {
 
       setEnemySpeed(prev => {
         if (prev >= 100) {
-          executeEnemyAttack();
           return 0;
         }
         const next = prev + (enemyRate * delta);
