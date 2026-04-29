@@ -3,8 +3,18 @@ import Phaser from 'phaser'
 export class Player extends Phaser.Physics.Arcade.Image {
   private moveSpeed: number = 250
   private playerRadius: number = 20
-  private glowTween!: Phaser.Tweens.Tween | null
-  private playerTexture!: Phaser.Textures.CanvasTexture
+  private glowTween: Phaser.Tweens.Tween | null = null
+
+  private maxHealth: number = 5
+  private currentHealth: number = 5
+  private experience: number = 0
+  private gold: number = 0
+  private level: number = 1
+  private isInvincible: boolean = false
+  private invincibleTimer: number = 0
+
+  private lastShootTime: number = 0
+  private shootCooldown: number = 300
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, '')
@@ -22,8 +32,8 @@ export class Player extends Phaser.Physics.Arcade.Image {
     this.setMaxVelocity(this.moveSpeed, this.moveSpeed)
 
     const body = this.body as Phaser.Physics.Arcade.Body
-    body.setCircle(this.playerRadius)
-    body.setOffset(0, 0)
+    const textureSize = this.playerRadius * 2
+    body.setCircle(this.playerRadius, 0, 0)
   }
 
   private createPlayerTexture(): void {
@@ -31,70 +41,67 @@ export class Player extends Phaser.Physics.Arcade.Image {
       return
     }
 
-    const size = this.playerRadius * 2 + 20
+    const size = this.playerRadius * 2
     const canvas = this.scene.textures.createCanvas('player', size, size)
     const ctx = canvas.getContext()
 
-    const gradient = ctx.createRadialGradient(
-      size / 2, size / 2, 0,
-      size / 2, size / 2, this.playerRadius + 5
-    )
-    gradient.addColorStop(0, '#00ffcc')
-    gradient.addColorStop(0.5, '#00d9ff')
+    ctx.save()
+    ctx.translate(size / 2, size / 2)
+
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.playerRadius + 8)
+    gradient.addColorStop(0, 'rgba(0, 255, 204, 0.8)')
+    gradient.addColorStop(0.5, 'rgba(0, 217, 255, 0.4)')
     gradient.addColorStop(1, 'rgba(0, 217, 255, 0)')
 
     ctx.fillStyle = gradient
     ctx.beginPath()
-    ctx.arc(size / 2, size / 2, this.playerRadius + 5, 0, Math.PI * 2)
+    ctx.arc(0, 0, this.playerRadius + 8, 0, Math.PI * 2)
     ctx.fill()
 
     ctx.fillStyle = '#00d9ff'
     ctx.beginPath()
-    ctx.arc(size / 2, size / 2, this.playerRadius, 0, Math.PI * 2)
+    ctx.arc(0, 0, this.playerRadius, 0, Math.PI * 2)
     ctx.fill()
 
     ctx.strokeStyle = '#00ffcc'
     ctx.lineWidth = 3
     ctx.beginPath()
-    ctx.arc(size / 2, size / 2, this.playerRadius, 0, Math.PI * 2)
+    ctx.arc(0, 0, this.playerRadius, 0, Math.PI * 2)
     ctx.stroke()
 
-    const eyeOffset = 6
-    const eyeY = size / 2 - 2
-    const eyeRadius = 4
+    const eyeOffset = 5
+    const eyeY = -2
+    const eyeRadius = 3
 
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
-    ctx.arc(size / 2 - eyeOffset, eyeY, eyeRadius, 0, Math.PI * 2)
+    ctx.arc(-eyeOffset, eyeY, eyeRadius, 0, Math.PI * 2)
     ctx.fill()
-
     ctx.beginPath()
-    ctx.arc(size / 2 + eyeOffset, eyeY, eyeRadius, 0, Math.PI * 2)
+    ctx.arc(eyeOffset, eyeY, eyeRadius, 0, Math.PI * 2)
     ctx.fill()
 
     ctx.fillStyle = '#333333'
     ctx.beginPath()
-    ctx.arc(size / 2 - eyeOffset, eyeY, eyeRadius - 1.5, 0, Math.PI * 2)
+    ctx.arc(-eyeOffset, eyeY, eyeRadius - 1, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(eyeOffset, eyeY, eyeRadius - 1, 0, Math.PI * 2)
     ctx.fill()
 
-    ctx.beginPath()
-    ctx.arc(size / 2 + eyeOffset, eyeY, eyeRadius - 1.5, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.restore()
 
     canvas.refresh()
-    this.playerTexture = canvas
   }
 
   public moveLeft(): void {
     const body = this.body as Phaser.Physics.Arcade.Body
     body.setAccelerationX(-800)
-    this.setFlipX(true)
   }
 
   public moveRight(): void {
     const body = this.body as Phaser.Physics.Arcade.Body
     body.setAccelerationX(800)
-    this.setFlipX(false)
   }
 
   public moveUp(): void {
@@ -121,8 +128,8 @@ export class Player extends Phaser.Physics.Arcade.Image {
     if (!this.glowTween || !this.glowTween.isActive()) {
       this.glowTween = this.scene.tweens.add({
         targets: this,
-        scaleX: 1.1,
-        scaleY: 1.1,
+        scaleX: 1.05,
+        scaleY: 1.05,
         duration: 150,
         yoyo: true,
         repeat: -1,
@@ -138,7 +145,8 @@ export class Player extends Phaser.Physics.Arcade.Image {
     }
     this.scene.tweens.add({
       targets: this,
-      scale: 1,
+      scaleX: 1,
+      scaleY: 1,
       duration: 100,
       ease: 'Sine.easeOut'
     })
@@ -147,5 +155,84 @@ export class Player extends Phaser.Physics.Arcade.Image {
   public getVelocity(): Phaser.Math.Vector2 {
     const body = this.body as Phaser.Physics.Arcade.Body
     return body.velocity
+  }
+
+  public getCurrentHealth(): number {
+    return this.currentHealth
+  }
+
+  public getMaxHealth(): number {
+    return this.maxHealth
+  }
+
+  public takeDamage(amount: number = 1): boolean {
+    if (this.isInvincible) {
+      return false
+    }
+
+    this.currentHealth -= amount
+    this.isInvincible = true
+    this.invincibleTimer = 1500
+
+    this.scene.tweens.add({
+      targets: this,
+      alpha: 0.3,
+      duration: 100,
+      yoyo: true,
+      repeat: 5
+    })
+
+    return this.currentHealth <= 0
+  }
+
+  public heal(amount: number = 1): void {
+    this.currentHealth = Math.min(this.currentHealth + amount, this.maxHealth)
+  }
+
+  public addExperience(amount: number): void {
+    this.experience += amount
+  }
+
+  public getExperience(): number {
+    return this.experience
+  }
+
+  public addGold(amount: number): void {
+    this.gold += amount
+  }
+
+  public getGold(): number {
+    return this.gold
+  }
+
+  public getLevel(): number {
+    return this.level
+  }
+
+  public canShoot(currentTime: number): boolean {
+    return currentTime - this.lastShootTime >= this.shootCooldown
+  }
+
+  public updateShootTime(currentTime: number): void {
+    this.lastShootTime = currentTime
+  }
+
+  preUpdate(time: number, delta: number): void {
+    super.preUpdate(time, delta)
+
+    if (this.isInvincible) {
+      this.invincibleTimer -= delta
+      if (this.invincibleTimer <= 0) {
+        this.isInvincible = false
+        this.setAlpha(1)
+      }
+    }
+  }
+
+  destroy(fromScene?: boolean): void {
+    if (this.glowTween) {
+      this.glowTween.stop()
+    }
+    super.destroy(fromScene)
   }
 }

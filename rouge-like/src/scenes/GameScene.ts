@@ -1,11 +1,29 @@
 import Phaser from 'phaser'
 import { Player } from '../entities/Player'
+import { Enemy } from '../entities/Enemy'
+import { Bullet } from '../entities/Bullet'
+import { UIManager } from '../managers/UIManager'
+import { EnemySpawner } from '../managers/EnemySpawner'
 
 export class GameScene extends Phaser.Scene {
   private player!: Player
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
   private wasdKeys!: any
   private walls!: Phaser.Physics.Arcade.StaticGroup
+
+  private uiManager!: UIManager
+  private enemySpawner!: EnemySpawner
+
+  private playerBullets!: Phaser.Physics.Arcade.Group
+  private enemyBullets!: Phaser.Physics.Arcade.Group
+
+  private worldWidth!: number
+  private worldHeight!: number
+
+  private pointer!: Phaser.Input.Pointer
+  private isPointerDown: boolean = false
+
+  private isPaused: boolean = false
 
   constructor() {
     super({ key: 'GameScene' })
@@ -17,21 +35,35 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const width = this.scale.width
     const height = this.scale.height
-    const worldWidth = width * 2
-    const worldHeight = height * 2
+    this.worldWidth = width * 2
+    this.worldHeight = height * 2
 
-    this.physics.world.setBounds(0, 0, worldWidth, worldHeight)
-    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight)
+    this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight)
+    this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight)
 
-    this.createBackground(worldWidth, worldHeight)
+    this.createBackground(this.worldWidth, this.worldHeight)
 
     this.walls = this.physics.add.staticGroup()
-    this.createWalls(worldWidth, worldHeight)
-    this.createObstacles(worldWidth, worldHeight)
+    this.createWalls(this.worldWidth, this.worldHeight)
+    this.createObstacles(this.worldWidth, this.worldHeight)
 
-    this.player = new Player(this, worldWidth / 2, worldHeight / 2)
+    this.player = new Player(this, this.worldWidth / 2, this.worldHeight / 2)
 
     this.physics.add.collider(this.player, this.walls)
+
+    this.playerBullets = this.physics.add.group({
+      classType: Bullet,
+      runChildUpdate: false
+    })
+
+    this.enemyBullets = this.physics.add.group({
+      classType: Bullet,
+      runChildUpdate: false
+    })
+
+    this.enemySpawner = new EnemySpawner(this, this.player, this.worldWidth, this.worldHeight)
+
+    this.uiManager = new UIManager(this, this.player)
 
     this.cursors = this.input.keyboard!.createCursorKeys()
     this.wasdKeys = this.input.keyboard!.addKeys({
@@ -41,12 +73,181 @@ export class GameScene extends Phaser.Scene {
       right: Phaser.Input.Keyboard.KeyCodes.D
     })
 
+    this.pointer = this.input.activePointer
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.leftButtonDown()) {
+        this.isPointerDown = true
+      }
+    })
+
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.leftButtonDown()) {
+        this.isPointerDown = false
+      }
+    })
+
+    this.input.keyboard!.on('keydown-ESC', () => {
+      this.isPaused = !this.isPaused
+      this.physics.world.timeScale = this.isPaused ? 0 : 1
+    })
+
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
-    this.createUI()
+    this.setupCollisions()
   }
 
-  update(): void {
+  private setupCollisions(): void {
+    this.physics.add.collider(this.enemySpawner.getEnemies(), this.walls)
+
+    this.physics.add.collider(
+      this.playerBullets,
+      this.enemySpawner.getEnemies(),
+      this.handleBulletEnemyCollision,
+      undefined,
+      this
+    )
+
+    this.physics.add.collider(
+      this.playerBullets,
+      this.walls,
+      this.handleBulletWallCollision,
+      undefined,
+      this
+    )
+
+    this.physics.add.collider(
+      this.enemyBullets,
+      this.player,
+      this.handleEnemyBulletPlayerCollision,
+      undefined,
+      this
+    )
+
+    this.physics.add.collider(
+      this.enemyBullets,
+      this.walls,
+      this.handleBulletWallCollision,
+      undefined,
+      this
+    )
+
+    this.physics.add.overlap(
+      this.player,
+      this.enemySpawner.getEnemies(),
+      this.handlePlayerEnemyOverlap,
+      undefined,
+      this
+    )
+  }
+
+  private handleBulletEnemyCollision(
+    bulletObj: Phaser.GameObjects.GameObject,
+    enemyObj: Phaser.GameObjects.GameObject
+  ): void {
+    const bullet = bulletObj as Bullet
+    const enemy = enemyObj as Enemy
+
+    if (!bullet.active || !enemy.active) {
+      return
+    }
+
+    const isDead = enemy.takeDamage(bullet.getDamage())
+
+    this.playerBullets.remove(bullet, true, true)
+
+    if (isDead) {
+      this.player.addExperience(enemy.getExperienceValue())
+      this.player.addGold(enemy.getGoldValue())
+      this.enemySpawner.removeEnemy(enemy)
+
+      this.addDeathEffect(enemy.x, enemy.y)
+    }
+  }
+
+  private handleBulletWallCollision(
+    bulletObj: Phaser.GameObjects.GameObject,
+    _wall: Phaser.GameObjects.GameObject
+  ): void {
+    const bullet = bulletObj as Bullet
+    if (bullet.active) {
+      bullet.destroy()
+    }
+  }
+
+  private handleEnemyBulletPlayerCollision(
+    bulletObj: Phaser.GameObjects.GameObject,
+    playerObj: Phaser.GameObjects.GameObject
+  ): void {
+    const bullet = bulletObj as Bullet
+    const player = playerObj as Player
+
+    if (!bullet.active) {
+      return
+    }
+
+    const isDead = player.takeDamage(bullet.getDamage())
+    this.enemyBullets.remove(bullet, true, true)
+
+    if (isDead) {
+      this.handlePlayerDeath()
+    }
+  }
+
+  private handlePlayerEnemyOverlap(
+    playerObj: Phaser.GameObjects.GameObject,
+    enemyObj: Phaser.GameObjects.GameObject
+  ): void {
+    const player = playerObj as Player
+    const enemy = enemyObj as Enemy
+    const currentTime = this.time.now
+
+    if (enemy.canAttack(currentTime)) {
+      const damage = enemy.attack(currentTime)
+      const isDead = player.takeDamage(damage)
+
+      if (isDead) {
+        this.handlePlayerDeath()
+      }
+    }
+  }
+
+  private addDeathEffect(x: number, y: number): void {
+    const particles = this.add.particles(x, y, 'enemy', {
+      speed: { min: -100, max: 100 },
+      scale: { start: 0.5, end: 0 },
+      lifespan: 500,
+      tint: 0xe94560,
+      quantity: 10,
+      on: true
+    })
+
+    this.time.delayedCall(500, () => {
+      particles.destroy()
+    })
+  }
+
+  private handlePlayerDeath(): void {
+    this.cameras.main.fadeOut(1000, 0, 0, 0)
+
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.restart()
+    })
+  }
+
+  update(time: number, delta: number): void {
+    if (this.isPaused) {
+      return
+    }
+
+    this.updatePlayerMovement()
+    this.handleShooting(time)
+    this.enemySpawner.update(time)
+    this.updateBullets(time)
+    this.uiManager.update()
+  }
+
+  private updatePlayerMovement(): void {
     const velocity = this.player.getVelocity()
 
     if (velocity.x === 0 && velocity.y === 0) {
@@ -72,6 +273,47 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private handleShooting(currentTime: number): void {
+    if (!this.isPointerDown) {
+      return
+    }
+
+    if (!this.player.canShoot(currentTime)) {
+      return
+    }
+
+    const worldPoint = this.cameras.main.getWorldPoint(this.pointer.x, this.pointer.y)
+
+    const dx = worldPoint.x - this.player.x
+    const dy = worldPoint.y - this.player.y
+
+    const length = Math.sqrt(dx * dx + dy * dy)
+    if (length === 0) {
+      return
+    }
+
+    const bullet = new Bullet(this, this.player.x, this.player.y, dx, dy, false, 1)
+    this.playerBullets.add(bullet)
+
+    this.player.updateShootTime(currentTime)
+  }
+
+  private updateBullets(currentTime: number): void {
+    this.playerBullets.getChildren().forEach((child) => {
+      const bullet = child as Bullet
+      if (bullet.active && bullet.checkLifeTime(currentTime)) {
+        bullet.destroy()
+      }
+    })
+
+    this.enemyBullets.getChildren().forEach((child) => {
+      const bullet = child as Bullet
+      if (bullet.active && bullet.checkLifeTime(currentTime)) {
+        bullet.destroy()
+      }
+    })
+  }
+
   private createBackground(width: number, height: number): void {
     const graphics = this.add.graphics()
     graphics.fillStyle(0x1a1a2e, 1)
@@ -85,7 +327,6 @@ export class GameScene extends Phaser.Scene {
     for (let y = 0; y <= height; y += gridSize) {
       graphics.lineBetween(0, y, width, y)
     }
-
   }
 
   private createWalls(width: number, height: number): void {
@@ -119,42 +360,5 @@ export class GameScene extends Phaser.Scene {
       obstacle.setStrokeStyle(2, 0x00d9ff)
       this.walls.add(obstacle)
     })
-  }
-
-  private createUI(): void {
-    const camera = this.cameras.main
-
-    const healthBarBg = this.add.rectangle(
-      camera.midPoint.x - camera.width / 2 + 120,
-      camera.midPoint.y - camera.height / 2 + 40,
-      200,
-      30,
-      0x333333,
-      0.7
-    )
-    healthBarBg.setStrokeStyle(2, 0x666666)
-    healthBarBg.setScrollFactor(0)
-
-    const healthBar = this.add.rectangle(
-      healthBarBg.x,
-      healthBarBg.y,
-      196,
-      26,
-      0xe94560
-    )
-    healthBar.setScrollFactor(0)
-
-    const healthText = this.add.text(
-      healthBarBg.x,
-      healthBarBg.y,
-      '生命: 100/100',
-      {
-        fontSize: '16px',
-        fontFamily: 'Arial',
-        color: '#ffffff'
-      }
-    )
-    healthText.setOrigin(0.5)
-    healthText.setScrollFactor(0)
   }
 }
