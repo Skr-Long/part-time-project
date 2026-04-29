@@ -82,17 +82,18 @@ export function ExplorationMapScreen() {
   };
 
   const handleLocationClick = (location: Location) => {
-    const isAccessible = currentLocation?.connections.includes(location.id) || currentLocation?.id === location.id;
+    const isAccessible = currentLocation?.connections.includes(location.id);
+    const isCurrent = currentLocation?.id === location.id;
     const isVisited = visitedLocationIds.includes(location.id) || location.id === 'village';
     
-    if (!isVisited) {
-      showNotification('此地点尚未探索，无法前往');
-      return;
-    }
-    if (currentLocation?.id === location.id) return;
+    if (isCurrent) return;
     if (!isAccessible) {
       showNotification('此地点不连通，无法直接前往');
       return;
+    }
+
+    if (!isVisited) {
+      showNotification(`发现新地点：${location.nameCN}！`);
     }
 
     dispatch({ type: 'MOVE_TO_LOCATION', payload: { locationId: location.id } });
@@ -275,7 +276,7 @@ export function ExplorationMapScreen() {
               const color = getLocationTypeColor(location.type);
               
               const radius = isCurrent ? 32 : (isHovered ? 30 : 26);
-              const canClick = isVisited && isConnected && !isCurrent;
+              const canClick = isConnected && !isCurrent;
               
               return (
                 <g 
@@ -622,17 +623,19 @@ export function ExplorationMapScreen() {
                         onClick={() => handleLocationClick(loc)}
                         className="px-4 py-2 rounded-lg transition-all flex items-center gap-2"
                         style={{
-                          borderWidth: '1px',
+                          borderWidth: '2px',
                           borderStyle: 'solid',
-                          borderColor: locVisited ? getLocationTypeColor(loc.type) : '#d1d5db',
-                          backgroundColor: locVisited ? 'rgba(255, 255, 255, 0.8)' : '#e5e7eb',
-                          color: locVisited ? '#1a1a1a' : '#9ca3af',
-                          cursor: locVisited ? 'pointer' : 'not-allowed',
+                          borderColor: locVisited ? getLocationTypeColor(loc.type) : 'rgba(122, 122, 122, 0.5)',
+                          backgroundColor: locVisited ? 'rgba(255, 255, 255, 0.8)' : 'rgba(122, 122, 122, 0.1)',
+                          color: locVisited ? '#1a1a1a' : '#7a7a7a',
+                          cursor: 'pointer',
                         }}
                       >
                         <span>{locVisited ? getLocationTypeIcon(loc.type) : '❓'}</span>
-                        <span>{locVisited ? loc.nameCN : '???'}</span>
-                        {locVisited && <span className="text-xs" style={{ color: '#4a7c59' }}>→</span>}
+                        <span>{locVisited ? loc.nameCN : '未知地点'}</span>
+                        <span className="text-xs" style={{ color: locVisited ? '#4a7c59' : '#f59e0b' }}>
+                          {locVisited ? '→' : '（新）'}
+                        </span>
                       </button>
                     );
                   })}
