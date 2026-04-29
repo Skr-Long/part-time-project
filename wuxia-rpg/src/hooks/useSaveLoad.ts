@@ -102,16 +102,30 @@ export function getSaveSlotInfo(slotIndex: number): SaveSlotInfo | null {
     const slotKey = getSlotKey(slotIndex);
     const raw = localStorage.getItem(slotKey);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as GameState;
+    const parsed = JSON.parse(raw);
     
-    return {
-      slotIndex,
-      name: parsed.player.name || '江湖新人',
-      savedAt: parsed.meta.lastSaved || Date.now(),
-      level: parsed.player.level || 1,
-      locationName: parsed.location?.nameCN,
-      attributes: parsed.player.attributes,
-    };
+    if (parsed.player && parsed.meta) {
+      return {
+        slotIndex,
+        name: parsed.player.name || '江湖新人',
+        savedAt: parsed.meta.lastSaved || Date.now(),
+        level: parsed.player.level || 1,
+        locationName: parsed.location?.nameCN,
+        attributes: parsed.player.attributes,
+      };
+    }
+    
+    if (parsed.name && parsed.attributes) {
+      return {
+        slotIndex,
+        name: parsed.name,
+        savedAt: parsed.savedAt || Date.now(),
+        level: 1,
+        attributes: parsed.attributes,
+      };
+    }
+    
+    return null;
   } catch { return null; }
 }
 

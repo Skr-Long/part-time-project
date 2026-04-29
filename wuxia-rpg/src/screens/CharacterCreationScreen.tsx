@@ -10,6 +10,11 @@ import {
   getCombatStatsDisplay,
 } from '../utils/attributes';
 import { generateRandomName } from '../utils/names';
+import {
+  getSaveSlotInfo,
+  formatSaveDate,
+  setCurrentSlotIndex,
+} from '../hooks/useSaveLoad';
 
 interface TooltipState {
   visible: boolean;
@@ -104,41 +109,13 @@ export default function CharacterCreationScreen() {
   };
 
   const handleSelectSaveSlot = (slotIndex: number) => {
-    const slotKey = `wuxia_rpg_slot_${slotIndex}`;
-    const saveData = {
-      name,
-      attributes,
-      slotIndex,
-      savedAt: Date.now(),
-    };
-    try {
-      localStorage.setItem(slotKey, JSON.stringify(saveData));
-      localStorage.setItem('wuxia_rpg_current_slot', String(slotIndex));
-    } catch { /* ignore */ }
-
+    setCurrentSlotIndex(slotIndex);
     dispatch({ type: 'INIT_PLAYER_STATS', payload: { name, attributes } });
-    dispatch({ type: 'CHANGE_GAME_PHASE', payload: { phase: 'exploration' } });
     setSaveSlotModal({ visible: false, name: '', attributes: {} as Attributes });
   };
 
   const handleCloseSaveModal = () => {
     setSaveSlotModal({ visible: false, name: '', attributes: {} as Attributes });
-  };
-
-  const getSaveSlotInfo = (slotIndex: number) => {
-    const slotKey = `wuxia_rpg_slot_${slotIndex}`;
-    try {
-      const raw = localStorage.getItem(slotKey);
-      if (raw) {
-        return JSON.parse(raw);
-      }
-    } catch { /* ignore */ }
-    return null;
-  };
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
   const tooltipInfo = tooltip.attribute ? getAttributeInfo(tooltip.attribute) : null;
@@ -493,7 +470,7 @@ export default function CharacterCreationScreen() {
                           <div>
                             <div className="font-bold" style={{ color: '#1a1a1a' }}>{slotInfo.name}</div>
                             <div className="text-xs" style={{ color: '#7a7a7a' }}>
-                              {formatDate(slotInfo.savedAt)}
+                              {formatSaveDate(slotInfo.savedAt)}
                             </div>
                           </div>
                         )}
