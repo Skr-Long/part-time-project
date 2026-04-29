@@ -8,6 +8,7 @@ import EquipmentModal from './components/equipment/EquipmentModal'
 import MartialArtsModal from './components/martial/MartialArtsModal'
 import StatsModal from './components/stats/StatsModal'
 import MonsterBookModal from './components/monster/MonsterBookModal'
+import SettingsModal from './components/ui/SettingsModal'
 import TitleScreen from './screens/TitleScreen'
 import CharacterCreationScreen from './screens/CharacterCreationScreen'
 import { ExplorationScreen } from './screens/ExplorationScreen'
@@ -29,6 +30,7 @@ function ModalRouter() {
   if (modalType === 'martial') return <MartialArtsModal />
   if (modalType === 'stats') return <StatsModal />
   if (modalType === 'monster_book') return <MonsterBookModal />
+  if (modalType === 'settings') return <SettingsModal />
   return null
 }
 
