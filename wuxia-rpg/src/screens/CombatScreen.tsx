@@ -412,6 +412,15 @@ export function CombatScreen() {
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-white/80 rounded-lg shadow">
             <div className="flex justify-between text-sm mb-1">
+              <span style={{ color: '#7a7a7a' }}>{enemy.nameCN}速度</span>
+              <span className="font-bold" style={{ color: '#8b0000' }}>{Math.round(enemySpeed)}%</span>
+            </div>
+            <div className="h-4 rounded-full overflow-hidden" style={{ backgroundColor: '#e5e7eb' }}>
+              <div className="h-full transition-all duration-100" style={{ width: `${enemySpeed}%`, backgroundColor: '#8b0000' }} />
+            </div>
+          </div>
+          <div className="p-3 bg-white/80 rounded-lg shadow">
+            <div className="flex justify-between text-sm mb-1">
               <span style={{ color: '#7a7a7a' }}>你的速度</span>
               <span className="font-bold" style={{ color: '#1e40af' }}>{Math.round(playerSpeed)}%</span>
             </div>
@@ -429,15 +438,6 @@ export function CombatScreen() {
                 ⚠️ 防御中：速度槽积累速率减半
               </div>
             )}
-          </div>
-          <div className="p-3 bg-white/80 rounded-lg shadow">
-            <div className="flex justify-between text-sm mb-1">
-              <span style={{ color: '#7a7a7a' }}>{enemy.nameCN}速度</span>
-              <span className="font-bold" style={{ color: '#8b0000' }}>{Math.round(enemySpeed)}%</span>
-            </div>
-            <div className="h-4 rounded-full overflow-hidden" style={{ backgroundColor: '#e5e7eb' }}>
-              <div className="h-full transition-all duration-100" style={{ width: `${enemySpeed}%`, backgroundColor: '#8b0000' }} />
-            </div>
           </div>
         </div>
       </div>
