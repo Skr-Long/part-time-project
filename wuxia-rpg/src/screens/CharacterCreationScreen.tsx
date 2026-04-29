@@ -9,6 +9,7 @@ import {
   generateRandomAttributes,
   getCombatStatsDisplay,
 } from '../utils/attributes';
+import { generateRandomName } from '../utils/names';
 
 interface TooltipState {
   visible: boolean;
@@ -66,6 +67,10 @@ export default function CharacterCreationScreen() {
 
   const handleRandomize = () => {
     setAttributes(generateRandomAttributes());
+  };
+
+  const handleRandomizeName = () => {
+    setName(generateRandomName());
   };
 
   const showTooltip = (attribute: keyof Attributes, event: React.MouseEvent) => {
@@ -211,18 +216,31 @@ export default function CharacterCreationScreen() {
           >
             姓名
           </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="江湖新人"
-            className="w-full px-4 py-3 text-lg border-2 transition-colors focus:outline-none"
-            style={{
-              backgroundColor: 'transparent',
-              borderColor: 'var(--color-ink-gray)',
-              color: 'var(--color-ink-black)',
-            }}
-          />
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="江湖新人"
+              className="flex-1 px-4 py-3 text-lg border-2 transition-colors focus:outline-none"
+              style={{
+                backgroundColor: 'transparent',
+                borderColor: 'var(--color-ink-gray)',
+                color: 'var(--color-ink-black)',
+              }}
+            />
+            <button
+              onClick={handleRandomizeName}
+              className="px-4 py-3 text-sm font-serif border-2 transition-all duration-300 hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: 'var(--color-rice)',
+                color: 'var(--color-ink-black)',
+                borderColor: 'var(--color-ink-gray)',
+              }}
+            >
+              🎲 随机
+            </button>
+          </div>
         </div>
 
         {/* Points remaining display with random button */}
