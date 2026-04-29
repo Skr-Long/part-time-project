@@ -54,6 +54,7 @@ function createInitialPlayer(): PlayerState {
       { techniqueId: 'iron-palm', level: 1, exp: 0, expToNext: 100 },
     ],
     visitedLocations: [],
+    exploredLocations: [],
     completedEvents: [],
     monsterBook: [],
   };

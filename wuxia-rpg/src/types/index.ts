@@ -228,6 +228,7 @@ export interface PlayerState {
   knownTechniques: string[];
   techniqueLevels: TechniqueLevel[];
   visitedLocations: string[];
+  exploredLocations: string[];
   completedEvents: string[];
   monsterBook: MonsterBookEntry[];
 }
@@ -569,6 +570,7 @@ export interface GameState {
 // ============================================
 export type GameAction =
   | { type: 'MOVE_TO_LOCATION'; payload: { locationId: string } }
+  | { type: 'EXPLORE_LOCATION'; payload: { locationId: string } }
   | { type: 'START_COMBAT'; payload: { enemy: Enemy } }
   | { type: 'EXECUTE_COMBAT_ACTION'; payload: { action: string; damage?: number; isHeal?: boolean; healAmount?: number; isCrit?: boolean } }
   | { type: 'END_COMBAT'; payload: { victory: boolean; rewards?: CombatRewards } }

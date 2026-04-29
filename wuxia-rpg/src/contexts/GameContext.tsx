@@ -33,6 +33,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case 'EXPLORE_LOCATION': {
+      const locationId = action.payload.locationId;
+      if (state.player.exploredLocations.includes(locationId)) {
+        return state;
+      }
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          exploredLocations: [...state.player.exploredLocations, locationId],
+        },
+      };
+    }
+
     case 'START_COMBAT': {
       const enemy = action.payload.enemy;
       const enemyStats = calculateCombatStats(enemy.attributes, enemy.level);

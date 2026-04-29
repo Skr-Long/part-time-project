@@ -62,6 +62,8 @@ export function ExplorationMapScreen() {
   const [notification, setNotification] = useState<string | null>(null);
 
   const visitedLocationIds = player.visitedLocations || [];
+  const exploredLocationIds = player.exploredLocations || [];
+  const isCurrentLocationExplored = currentLocation ? exploredLocationIds.includes(currentLocation.id) : false;
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -98,19 +100,39 @@ export function ExplorationMapScreen() {
     }
   };
 
-  const handleExplore = () => {
+  const handleDirectCombat = () => {
     if (!currentLocation?.encounterPool || currentLocation.encounterPool.length === 0) {
-      showNotification('此处没有可以探索的内容');
-      return;
-    }
-    const chance = (currentLocation.encounterChance || 30) * (1 + (player.attributes.luck + 5) / 50);
-    if (Math.random() * 100 > chance) {
-      showNotification('四处查看了一番，没有发现什么特别的...');
+      showNotification('此处没有可以战斗的敌人');
       return;
     }
     const enemyId = currentLocation.encounterPool[Math.floor(Math.random() * currentLocation.encounterPool.length)];
     const enemy = getScaledEnemy(enemyId, player.level);
     dispatch({ type: 'START_COMBAT', payload: { enemy } });
+  };
+
+  const handleExplore = () => {
+    if (!currentLocation) return;
+
+    const encounterPool = currentLocation.encounterPool;
+    
+    if (!isCurrentLocationExplored && encounterPool && encounterPool.length > 0) {
+      const chance = (currentLocation.encounterChance || 30) * (1 + (player.attributes.luck + 5) / 50);
+      if (Math.random() * 100 > chance) {
+        showNotification('四处查看了一番，没有发现什么特别的...');
+        return;
+      }
+      const enemyId = encounterPool[Math.floor(Math.random() * encounterPool.length)];
+      const enemy = getScaledEnemy(enemyId, player.level);
+      dispatch({ type: 'EXPLORE_LOCATION', payload: { locationId: currentLocation.id } });
+      dispatch({ type: 'START_COMBAT', payload: { enemy } });
+    } else {
+      const eventChance = 20 * (1 + (player.attributes.luck + 5) / 50);
+      if (Math.random() * 100 > eventChance) {
+        showNotification('四处查看了一番，没有发现什么特别的...');
+        return;
+      }
+      showNotification('你发现了一些有趣的东西...（事件/奇遇功能开发中）');
+    }
   };
 
   const handleInteraction = (interaction: CharacterInteraction) => {
@@ -676,17 +698,46 @@ export function ExplorationMapScreen() {
                 )}
                 
                 {currentLocation.locationType === 'encounter' && (
-                  <button
-                    onClick={handleExplore}
-                    className="w-full px-6 py-4 rounded-lg transition-colors text-lg font-serif flex items-center justify-center gap-2"
-                    style={{
-                      backgroundColor: '#1a1a1a',
-                      color: '#f5f0e6',
-                    }}
-                  >
-                    <span>🔍</span>
-                    <span>探索 (可能遭遇敌人)</span>
-                  </button>
+                  <>
+                    {isCurrentLocationExplored ? (
+                      <>
+                        <button
+                          onClick={handleDirectCombat}
+                          className="w-full px-6 py-4 rounded-lg transition-colors text-lg font-serif flex items-center justify-center gap-2"
+                          style={{
+                            backgroundColor: '#dc2626',
+                            color: '#fff',
+                          }}
+                        >
+                          <span>⚔️</span>
+                          <span>直接战斗 (已探索)</span>
+                        </button>
+                        <button
+                          onClick={handleExplore}
+                          className="w-full px-6 py-4 rounded-lg transition-colors text-lg font-serif flex items-center justify-center gap-2"
+                          style={{
+                            backgroundColor: '#7c3aed',
+                            color: '#fff',
+                          }}
+                        >
+                          <span>🔮</span>
+                          <span>探索奇遇 (有几率触发事件)</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleExplore}
+                        className="w-full px-6 py-4 rounded-lg transition-colors text-lg font-serif flex items-center justify-center gap-2"
+                        style={{
+                          backgroundColor: '#1a1a1a',
+                          color: '#f5f0e6',
+                        }}
+                      >
+                        <span>🔍</span>
+                        <span>探索 (可能遭遇敌人)</span>
+                      </button>
+                    )}
+                  </>
                 )}
 
                 {currentLocation.encounterPool && currentLocation.encounterPool.length > 0 && (
