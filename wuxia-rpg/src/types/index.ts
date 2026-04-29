@@ -38,12 +38,51 @@ export interface AttributeModifier {
   stackable?: boolean;
 }
 
+// --- Equipment Rarity ---
+export type EquipmentRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+export const EQUIPMENT_RARITY_INFO: Record<EquipmentRarity, { nameCN: string; color: string; bonusMultiplier: number }> = {
+  common: { nameCN: '普通', color: '#7a7a7a', bonusMultiplier: 1.0 },
+  uncommon: { nameCN: '精良', color: '#2563eb', bonusMultiplier: 1.2 },
+  rare: { nameCN: '稀有', color: '#7c3aed', bonusMultiplier: 1.5 },
+  epic: { nameCN: '史诗', color: '#dc2626', bonusMultiplier: 2.0 },
+  legendary: { nameCN: '传说', color: '#f59e0b', bonusMultiplier: 3.0 },
+};
+
+// --- Equipment Requirement ---
+export interface EquipmentRequirement {
+  type: 'level' | 'attribute' | 'technique' | 'profession';
+  attribute?: keyof Attributes;
+  techniqueId?: string;
+  profession?: ProfessionType;
+  value: number;
+  descriptionCN: string;
+}
+
+// --- Equipment Special Effect ---
+export interface EquipmentSpecialEffect {
+  id: string;
+  nameCN: string;
+  descriptionCN: string;
+  type: 'passive' | 'active' | 'combat_trigger';
+  triggerCondition?: string;
+  effects: {
+    type: 'attribute_bonus' | 'combat_bonus' | 'damage_bonus' | 'defense_bonus' | 'heal_on_hit' | 'lifesteal' | 'critical_bonus';
+    attribute?: keyof Attributes;
+    combatStat?: keyof CombatStatsType;
+    value: number;
+    valueType?: 'flat' | 'percent';
+  }[];
+}
+
 // --- Item Effects ---
 export interface ItemEffects {
   attackBonus?: number;
   defenseBonus?: number;
   speedBonus?: number;
   maxHPBonus?: number;
+  maxEnergyBonus?: number;
+  critChanceBonus?: number;
   attributeBonus?: Partial<Attributes>;
 }
 
@@ -58,13 +97,68 @@ export interface InventoryItem {
   descriptionCN: string;
   effects: ItemEffects;
   stackable: boolean;
+  value?: number;
 }
 
 // --- Equipment Item (extends InventoryItem) ---
 export interface EquipmentItem extends InventoryItem {
+  rarity: EquipmentRarity;
   equipEffects: ItemEffects;
   requiredLevel: number;
-  requiredProfession?: ProfessionType;
+  requirements: EquipmentRequirement[];
+  specialEffects: EquipmentSpecialEffect[];
+  craftable?: boolean;
+  craftMaterials?: CraftMaterial[];
+  uniqueId?: string;
+}
+
+// --- Craft Material ---
+export interface CraftMaterial {
+  itemId: string;
+  quantity: number;
+}
+
+// --- Craft Recipe ---
+export interface CraftRecipe {
+  id: string;
+  nameCN: string;
+  baseItemId: string;
+  cost: number;
+  materials: CraftMaterial[];
+  requiredLevel: number;
+  requiredBlacksmithLevel: number;
+  descriptionCN: string;
+}
+
+// --- Blacksmith Shop ---
+export interface BlacksmithShop {
+  id: string;
+  nameCN: string;
+  descriptionCN: string;
+  shopItems: ShopListing[];
+  craftRecipes: string[];
+  canRepair: boolean;
+  canEnchant: boolean;
+}
+
+// --- Craft Result ---
+export interface CraftResult {
+  success: boolean;
+  item?: EquipmentItem;
+  message: string;
+  bonusEffects?: ItemEffects;
+  specialEffects?: EquipmentSpecialEffect[];
+}
+
+// --- Enchant Option ---
+export interface EnchantOption {
+  id: string;
+  nameCN: string;
+  descriptionCN: string;
+  cost: number;
+  effectType: 'attack' | 'defense' | 'speed' | 'hp' | 'crit' | 'energy';
+  minBonus: number;
+  maxBonus: number;
 }
 
 // --- Equipment Slots ---
@@ -499,4 +593,6 @@ export type GameAction =
   | { type: 'RESET_GAME' }
   | { type: 'SET_PLAYER_NAME'; payload: { name: string } }
   | { type: 'INIT_PLAYER_STATS'; payload: { name: string; attributes: Attributes } }
-  | { type: 'UPDATE_SETTINGS'; payload: Partial<MetaState['settings']> };
+  | { type: 'UPDATE_SETTINGS'; payload: Partial<MetaState['settings']> }
+  | { type: 'CRAFT_ITEM'; payload: { recipeId: string } }
+  | { type: 'PURCHASE_ITEM'; payload: { itemId: string; price: number } };

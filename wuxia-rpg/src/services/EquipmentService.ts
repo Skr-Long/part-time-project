@@ -8,7 +8,8 @@ import type {
   EquipmentSlots, 
   InventoryItem,
   ItemEffects,
-  AttributeModifier
+  AttributeModifier,
+  Attributes
 } from '../types';
 import { attributeService } from './AttributeService';
 
@@ -76,20 +77,45 @@ export class EquipmentService {
   canEquip(
     item: EquipmentItem,
     playerLevel: number,
+    playerAttributes?: Attributes,
+    knownTechniques: string[] = [],
     playerProfession?: string
   ): { canEquip: boolean; reason?: string } {
-    if (item.requiredLevel && playerLevel < item.requiredLevel) {
-      return { 
-        canEquip: false, 
-        reason: `需要等级 ${item.requiredLevel} 才能装备 ${item.nameCN}` 
-      };
-    }
-
-    if (item.requiredProfession && playerProfession !== item.requiredProfession) {
-      return { 
-        canEquip: false, 
-        reason: `需要 ${item.requiredProfession} 职业才能装备 ${item.nameCN}` 
-      };
+    for (const req of item.requirements) {
+      switch (req.type) {
+        case 'level':
+          if (playerLevel < req.value) {
+            return {
+              canEquip: false,
+              reason: req.descriptionCN,
+            };
+          }
+          break;
+        case 'attribute':
+          if (req.attribute && playerAttributes && playerAttributes[req.attribute] < req.value) {
+            return {
+              canEquip: false,
+              reason: req.descriptionCN,
+            };
+          }
+          break;
+        case 'technique':
+          if (req.techniqueId && !knownTechniques.includes(req.techniqueId)) {
+            return {
+              canEquip: false,
+              reason: req.descriptionCN,
+            };
+          }
+          break;
+        case 'profession':
+          if (req.profession && playerProfession !== req.profession) {
+            return {
+              canEquip: false,
+              reason: req.descriptionCN,
+            };
+          }
+          break;
+      }
     }
 
     return { canEquip: true };
@@ -100,6 +126,8 @@ export class EquipmentService {
     inventory: InventoryItem[],
     equipment: EquipmentSlots,
     playerLevel: number = 1,
+    playerAttributes?: Attributes,
+    knownTechniques: string[] = [],
     playerProfession?: string
   ): EquipResult {
     const itemIndex = inventory.findIndex(i => i.id === itemId);
@@ -120,7 +148,7 @@ export class EquipmentService {
       };
     }
 
-    const equipCheck = this.canEquip(item, playerLevel, playerProfession);
+    const equipCheck = this.canEquip(item, playerLevel, playerAttributes, knownTechniques, playerProfession);
     if (!equipCheck.canEquip) {
       return { 
         success: false, 

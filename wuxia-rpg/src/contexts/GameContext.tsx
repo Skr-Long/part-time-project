@@ -4,6 +4,8 @@ import { getInitialGameState, DEFAULT_LOCATIONS } from '../hooks/useInitialState
 import { calculateCombatStats } from '../utils/combat';
 import { getSkillExpBonusMultiplier } from '../utils/attributes';
 import { saveGame } from '../hooks/useSaveLoad';
+import { checkEquipmentRequirements, craftItem } from '../utils/equipment';
+import { getEquipment, getItem, getCraftRecipe } from '../data/items';
 
 interface GameContextValue {
   state: GameState;
@@ -248,6 +250,27 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (itemIndex === -1) return state;
       const item = state.player.inventory[itemIndex] as EquipmentItem;
       if (!['weapon', 'armor', 'accessory'].includes(item.type)) return state;
+
+      const { canEquip, failedRequirements } = checkEquipmentRequirements(
+        item,
+        state.player.level,
+        state.player.attributes,
+        state.player.knownTechniques
+      );
+
+      if (!canEquip) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [
+              ...state.ui.notifications,
+              `无法装备 ${item.nameCN}：${failedRequirements.join('、')}`,
+            ],
+          },
+        };
+      }
+
       const slot = item.type as 'weapon' | 'armor' | 'accessory';
       const currentEquipped = state.player.equipment[slot];
       const newInventory = state.player.inventory.filter(i => i.id !== action.payload.itemId);
@@ -258,6 +281,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         player: { ...state.player, inventory: newInventory, equipment: newEquipment },
+        ui: {
+          ...state.ui,
+          notifications: [...state.ui.notifications, `装备了 ${item.nameCN}`],
+        },
       };
     }
 
@@ -270,6 +297,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         player: { ...state.player, inventory: newInventory, equipment: newEquipment },
+        ui: {
+          ...state.ui,
+          notifications: [...state.ui.notifications, `卸下了 ${item.nameCN}`],
+        },
       };
     }
 
@@ -471,6 +502,137 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             ...state.meta.settings,
             ...action.payload,
           },
+        },
+      };
+    }
+
+    case 'CRAFT_ITEM': {
+      const { recipeId } = action.payload;
+      const blacksmithLevel = state.player.professions.blacksmith?.level || 1;
+
+      const result = craftItem(recipeId, state.player.level, blacksmithLevel);
+
+      if (!result.success || !result.item) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, result.message],
+          },
+        };
+      }
+
+      const recipe = getCraftRecipe(recipeId);
+      if (!recipe) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, '打造配方不存在'],
+          },
+        };
+      }
+
+      if (state.player.gold < recipe.cost) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, '金币不足'],
+          },
+        };
+      }
+
+      let newInventory = [...state.player.inventory];
+      for (const material of recipe.materials) {
+        const itemIndex = newInventory.findIndex(i => i.id === material.itemId);
+        if (itemIndex === -1) {
+          return {
+            ...state,
+            ui: {
+              ...state.ui,
+              notifications: [...state.ui.notifications, `材料不足：${material.itemId}`],
+            },
+          };
+        }
+        const item = newInventory[itemIndex];
+        if (item.quantity < material.quantity) {
+          return {
+            ...state,
+            ui: {
+              ...state.ui,
+              notifications: [...state.ui.notifications, `材料不足：${material.itemId}`],
+            },
+          };
+        }
+        if (item.quantity > material.quantity) {
+          newInventory[itemIndex] = { ...item, quantity: item.quantity - material.quantity };
+        } else {
+          newInventory.splice(itemIndex, 1);
+        }
+      }
+
+      newInventory = [...newInventory, result.item];
+
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          gold: state.player.gold - recipe.cost,
+          inventory: newInventory,
+        },
+        ui: {
+          ...state.ui,
+          notifications: [...state.ui.notifications, result.message],
+        },
+      };
+    }
+
+    case 'PURCHASE_ITEM': {
+      const { itemId, price } = action.payload;
+
+      if (state.player.gold < price) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, '金币不足'],
+          },
+        };
+      }
+
+      const item = getEquipment(itemId) || getItem(itemId);
+      if (!item) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, '商品不存在'],
+          },
+        };
+      }
+
+      const newItem = { ...item, quantity: 1 };
+      const existIndex = state.player.inventory.findIndex(i => i.id === newItem.id && i.stackable);
+
+      let newInventory;
+      if (existIndex !== -1 && newItem.stackable) {
+        newInventory = [...state.player.inventory];
+        newInventory[existIndex] = { ...newInventory[existIndex], quantity: newInventory[existIndex].quantity + newItem.quantity };
+      } else {
+        newInventory = [...state.player.inventory, newItem];
+      }
+
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          gold: state.player.gold - price,
+          inventory: newInventory,
+        },
+        ui: {
+          ...state.ui,
+          notifications: [...state.ui.notifications, `购买了 ${item.nameCN}`],
         },
       };
     }
