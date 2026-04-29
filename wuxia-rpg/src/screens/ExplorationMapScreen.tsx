@@ -166,8 +166,6 @@ export function ExplorationMapScreen() {
     }
   };
 
-  const connectedLocations = DEFAULT_LOCATIONS.filter(l => currentLocation?.connections.includes(l.id));
-
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#f5f0e6' }}>
       {notification && (
@@ -608,38 +606,6 @@ export function ExplorationMapScreen() {
                     )}
                   </div>
                 )}
-              </div>
-            )}
-
-            {connectedLocations.length > 0 && (
-              <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
-                <h3 className="text-sm font-bold mb-3" style={{ color: '#7a7a7a' }}>🚶 可前往的其他地点</h3>
-                <div className="flex flex-wrap gap-2">
-                  {connectedLocations.map(loc => {
-                    const locVisited = visitedLocationIds.includes(loc.id) || loc.id === 'village';
-                    return (
-                      <button
-                        key={loc.id}
-                        onClick={() => handleLocationClick(loc)}
-                        className="px-4 py-2 rounded-lg transition-all flex items-center gap-2"
-                        style={{
-                          borderWidth: '2px',
-                          borderStyle: 'solid',
-                          borderColor: locVisited ? getLocationTypeColor(loc.type) : 'rgba(122, 122, 122, 0.5)',
-                          backgroundColor: locVisited ? 'rgba(255, 255, 255, 0.8)' : 'rgba(122, 122, 122, 0.1)',
-                          color: locVisited ? '#1a1a1a' : '#7a7a7a',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <span>{locVisited ? getLocationTypeIcon(loc.type) : '❓'}</span>
-                        <span>{locVisited ? loc.nameCN : '未知地点'}</span>
-                        <span className="text-xs" style={{ color: locVisited ? '#4a7c59' : '#f59e0b' }}>
-                          {locVisited ? '→' : '（新）'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
             )}
 
