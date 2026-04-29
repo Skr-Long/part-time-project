@@ -26,6 +26,18 @@ export interface CombatStats {
 
 export type CombatStatsType = Omit<CombatStats, 'currentHP' | 'currentEnergy'>;
 
+// --- Attribute Modifier (for buffs, debuffs, equipment, skills) ---
+export interface AttributeModifier {
+  id: string;
+  source: string;
+  type: 'add' | 'multiply' | 'override';
+  attribute?: keyof Attributes;
+  combatStat?: keyof CombatStatsType;
+  value: number;
+  duration?: number;
+  stackable?: boolean;
+}
+
 // --- Item Effects ---
 export interface ItemEffects {
   attackBonus?: number;
