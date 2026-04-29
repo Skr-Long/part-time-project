@@ -3,6 +3,10 @@
 // 统一导出所有服务层模块
 // ============================================
 
+import type { PlayerState } from '../types';
+import type { CombatParticipant } from './CombatService';
+import { combatService } from './CombatService';
+
 export { AttributeService, attributeService } from './AttributeService';
 export type { 
   AttributeModifier, 
@@ -34,3 +38,15 @@ export type {
   SkillLevelUpResult,
   PassiveBonuses
 } from './SkillService';
+
+export function combatParticipantFromState(player: PlayerState): CombatParticipant {
+  return combatService.createPlayerParticipant(
+    player.attributes,
+    player.level,
+    player.equipment,
+    player.knownTechniques,
+    player.techniqueLevels,
+    player.combatStats.currentHP,
+    player.combatStats.currentEnergy
+  );
+}

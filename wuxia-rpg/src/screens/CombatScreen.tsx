@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useGameSelector, useGameDispatch } from '../hooks/useGame';
 import { HPBar } from '../components/ui/HPBar';
 import { getMartialArt } from '../data/martialArts';
-import { calculateDamage } from '../utils/combat';
-import type { Enemy, CombatLogEntry, CombatStats, CombatStatsType, GameAction } from '../types';
+import { combatService, combatParticipantFromState } from '../services';
+import type { CombatLogEntry, CombatStats, GameAction } from '../types';
 
 interface CombatSkill {
   id: string;
@@ -14,18 +14,6 @@ interface CombatSkill {
   value: number;
   description: string;
   type: 'internal' | 'external' | 'weapon' | 'special';
-}
-
-function computeEnemyStats(enemy: Enemy): CombatStatsType {
-  const { attributes, level } = enemy;
-  return {
-    maxHP: 100 + attributes.constitution * 10 + level * 5,
-    attack: 10 + attributes.strength * 5 + level * 2,
-    defense: 5 + attributes.physique * 3 + level * 1,
-    speed: 10 + attributes.agility * 2 + level * 1,
-    maxEnergy: 50 + level * 10 + attributes.insight * 5,
-    critChance: Math.max(0, attributes.luck) * 0.5,
-  };
 }
 
 export function CombatScreen() {
@@ -52,23 +40,16 @@ export function CombatScreen() {
   }, [dispatch]);
 
   const playerBaseStats = useMemo(() => {
+    const participant = combatParticipantFromState(player);
     return {
-      attack: player.combatStats.attack + (player.equipment.weapon?.effects.attackBonus || 0),
-      defense: player.combatStats.defense + (player.equipment.armor?.effects.defenseBonus || 0),
-      speed: player.combatStats.speed + (player.equipment.armor?.effects.speedBonus || 0),
-      maxHP: player.combatStats.maxHP + (player.equipment.armor?.effects.maxHPBonus || 0),
-      maxEnergy: player.combatStats.maxEnergy,
-      critChance: player.combatStats.critChance,
+      attack: participant.combatStats.attack,
+      defense: participant.combatStats.defense,
+      speed: participant.combatStats.speed,
+      maxHP: participant.combatStats.maxHP,
+      maxEnergy: participant.combatStats.maxEnergy,
+      critChance: participant.combatStats.critChance,
     };
-  }, [
-    player.combatStats.attack,
-    player.combatStats.defense,
-    player.combatStats.speed,
-    player.combatStats.maxHP,
-    player.combatStats.maxEnergy,
-    player.combatStats.critChance,
-    player.equipment,
-  ]);
+  }, [player]);
 
   const playerStateRef = useRef({
     baseStats: playerBaseStats,
@@ -155,12 +136,11 @@ export function CombatScreen() {
     enemyAttackingRef.current = true;
     
     try {
-      const enemyStats = computeEnemyStats(currentEnemy);
+      const enemyStats = combatService.computeEnemyCombatStats(currentEnemy);
       const enemyCombatStats: CombatStats = {
         ...enemyStats,
         currentHP: currentEnemyHP,
         currentEnergy: currentEnemy.maxEnergy,
-        critChance: Math.max(0, currentEnemy.attributes.luck) * 0.5,
       };
 
       let finalDefense = baseStats.defense;
@@ -182,14 +162,20 @@ export function CombatScreen() {
         critChance: baseStats.critChance,
       };
 
-      const { damage, isCritical } = calculateDamage(enemyCombatStats, defenderStats, enemyStats.attack);
-      const critMessage = isCritical ? ' (暴击!)' : '';
+      const damageResult = combatService.calculateDamage(
+        enemyCombatStats,
+        defenderStats,
+        enemyStats.attack,
+        currentIsDefending
+      );
+      
+      const critMessage = damageResult.isCritical ? ' (暴击!)' : '';
       
       currentDispatch({ 
         type: 'EXECUTE_COMBAT_ACTION', 
         payload: { 
-          action: `🩸 ${currentEnemy.nameCN} 发动攻击！对你造成 ${damage} 点伤害！${critMessage}${defendMessage}`, 
-          damage: -damage 
+          action: `🩸 ${currentEnemy.nameCN} 发动攻击！对你造成 ${damageResult.damage} 点伤害！${critMessage}${defendMessage}`, 
+          damage: -damageResult.damage 
         } 
       });
     } finally {
@@ -202,12 +188,11 @@ export function CombatScreen() {
   const executePlayerAction = useCallback((action: { type: 'attack' | 'skill'; skill?: CombatSkill }) => {
     if (!enemy) return;
 
-    const enemyStats = computeEnemyStats(enemy);
+    const enemyStats = combatService.computeEnemyCombatStats(enemy);
     const enemyCombatStats: CombatStats = {
       ...enemyStats,
       currentHP: enemyCurrentHP,
       currentEnergy: enemy.maxEnergy,
-      critChance: Math.max(0, enemy.attributes.luck) * 0.5,
     };
 
     if (action.type === 'skill' && action.skill && action.skill.effectType === 'heal') {
@@ -240,24 +225,31 @@ export function CombatScreen() {
       critChance: playerBaseStats.critChance,
     };
 
-    const { damage, isCritical: isCrit } = calculateDamage(attackerStats, enemyCombatStats, baseDamage);
+    const damageResult = combatService.calculateDamage(
+      attackerStats,
+      enemyCombatStats,
+      baseDamage,
+      false
+    );
 
     if (action.type === 'skill' && action.skill) {
+      const critText = damageResult.isCritical ? ' (暴击!)' : '';
       dispatch({ 
         type: 'EXECUTE_COMBAT_ACTION', 
         payload: { 
-          action: `${action.skill.icon} 你施展了「${action.skill.name}」！造成 ${damage} 点伤害${isCrit ? ' (暴击!)' : ''}！`, 
-          damage,
-          isCrit
+          action: `${action.skill.icon} 你施展了「${action.skill.name}」！造成 ${damageResult.damage} 点伤害${critText}！`, 
+          damage: damageResult.damage,
+          isCrit: damageResult.isCritical
         } 
       });
     } else {
+      const critText = damageResult.isCritical ? ' (暴击!)' : '';
       dispatch({ 
         type: 'EXECUTE_COMBAT_ACTION', 
         payload: { 
-          action: `⚔️ 你发动攻击！造成 ${damage} 点伤害${isCrit ? ' (暴击!)' : ''}！`, 
-          damage,
-          isCrit
+          action: `⚔️ 你发动攻击！造成 ${damageResult.damage} 点伤害${critText}！`, 
+          damage: damageResult.damage,
+          isCrit: damageResult.isCritical
         } 
       });
     }
@@ -274,7 +266,7 @@ export function CombatScreen() {
       isInitializedRef.current = true;
     }
 
-    const enemyStats = computeEnemyStats(enemy);
+    const enemyStats = combatService.computeEnemyCombatStats(enemy);
     const tickRate = 50;
     const basePlayerRate = (playerBaseStats.speed / 100) * combatSpeedMultiplier;
     const enemyRate = (enemyStats.speed / 100) * combatSpeedMultiplier;
@@ -344,13 +336,14 @@ export function CombatScreen() {
   const handleFlee = () => {
     if (!canAct) return;
     
-    if (Math.random() < 0.6) {
-      dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: '🏃 你成功逃离了战斗！' } });
+    const fleeResult = combatService.attemptFlee(0.6);
+    dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: fleeResult.logEntry.text } });
+    
+    if (fleeResult.success) {
       setTimeout(() => {
         dispatch({ type: 'END_COMBAT', payload: { victory: false } });
       }, 500);
     } else {
-      dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: '🏃 逃跑失败！敌人挡住了你的去路！' } });
       resetPlayerSpeed();
     }
   };
@@ -369,7 +362,7 @@ export function CombatScreen() {
 
   if (!enemy) return <div className="p-8 text-center">战斗加载中...</div>;
 
-  const enemyStats = computeEnemyStats(enemy);
+  const enemyStats = combatService.computeEnemyCombatStats(enemy);
   const playerHP = player.combatStats.currentHP;
   const playerMaxHP = player.combatStats.maxHP;
   const playerEnergy = player.combatStats.currentEnergy;
