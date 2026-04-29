@@ -8,6 +8,7 @@ import InventoryModal from './components/inventory/InventoryModal'
 import EquipmentModal from './components/equipment/EquipmentModal'
 import MartialArtsModal from './components/martial/MartialArtsModal'
 import StatsModal from './components/stats/StatsModal'
+import CharacterPanel from './components/character/CharacterPanel'
 import MonsterBookModal from './components/monster/MonsterBookModal'
 import SettingsModal from './components/ui/SettingsModal'
 import ShopModal from './components/shop/ShopModal'
@@ -29,6 +30,7 @@ function ModalRouter() {
   const modalType = useGameSelector(state => state.ui.modals.type)
   const modalData = useGameSelector(state => state.ui.modals.data)
 
+  if (modalType === 'character') return <CharacterPanel />
   if (modalType === 'overview') return <OverviewModal />
   if (modalType === 'inventory') return <InventoryModal />
   if (modalType === 'equipment') return <EquipmentModal />
