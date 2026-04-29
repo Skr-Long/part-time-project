@@ -290,6 +290,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    this.player.updateInvincibility(delta)
     this.updatePlayerMovement()
     this.handleShooting(time)
     this.enemySpawner.update(time)
