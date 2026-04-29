@@ -1,8 +1,29 @@
-import type { GameState, PlayerState, Location, CombatState, UIState, MetaState } from '../types';
+import type { GameState, PlayerState, Location, CombatState, UIState, MetaState, InventoryItem } from '../types';
 import { calculateCombatStats } from '../utils/combat';
 import { loadGlobalSettings } from './useSaveLoad';
+import { getItem } from '../data/items';
 
 const STORAGE_KEY = 'wuxia_rpg_game_state';
+
+function createInitialInventory(): InventoryItem[] {
+  const items: InventoryItem[] = [];
+  
+  const addItem = (itemId: string, quantity: number) => {
+    const item = getItem(itemId);
+    if (item) {
+      items.push({ ...item, quantity });
+    }
+  };
+
+  addItem('iron-ore', 20);
+  addItem('steel-ingot', 10);
+  addItem('wolf-skin', 15);
+  addItem('jade-stone', 5);
+  addItem('silver-ore', 5);
+  addItem('health-potion', 5);
+  
+  return items;
+}
 
 function createInitialPlayer(): PlayerState {
   const attributes = {
@@ -21,10 +42,10 @@ function createInitialPlayer(): PlayerState {
     level: 1,
     exp: 0,
     expToNext: 100,
-    gold: 0,
+    gold: 1000,
     attributes,
     combatStats,
-    inventory: [],
+    inventory: createInitialInventory(),
     equipment: { weapon: null, armor: null, accessory: null },
     professions: { blacksmith: null, herbalist: null, merchant: null },
     knownTechniques: initialTechniques,
@@ -69,8 +90,18 @@ const DEFAULT_LOCATIONS: Location[] = [
         type: 'blacksmith',
         descriptionCN: '王师傅的铁匠铺，可以打造和修理武器装备。',
         icon: '⚒️',
+        shopInventory: [
+          { itemId: 'iron-sword', price: 80, quantity: 5 },
+          { itemId: 'iron-dagger', price: 60, quantity: 5 },
+          { itemId: 'leather-armor', price: 100, quantity: 3 },
+          { itemId: 'jade-ring', price: 120, quantity: 2 },
+          { itemId: 'iron-ore', price: 10, quantity: 20 },
+          { itemId: 'steel-ingot', price: 50, quantity: 10 },
+          { itemId: 'wolf-skin', price: 15, quantity: 15 },
+        ],
         interactions: [
           { type: 'shop', label: '购买装备', description: '查看铁匠铺的商品' },
+          { type: 'craft', label: '打造装备', description: '使用材料打造装备' },
           { type: 'talk', label: '闲聊', description: '与王师傅聊天' },
         ],
       },
@@ -91,6 +122,14 @@ const DEFAULT_LOCATIONS: Location[] = [
         type: 'shop',
         descriptionCN: '李掌柜的杂货铺，售卖各种日用品。',
         icon: '🏪',
+        shopInventory: [
+          { itemId: 'health-potion', price: 30, quantity: 10 },
+          { itemId: 'greater-health-potion', price: 80, quantity: 5 },
+          { itemId: 'energy-potion', price: 35, quantity: 8 },
+          { itemId: 'antidote', price: 40, quantity: 6 },
+          { itemId: 'jade-stone', price: 80, quantity: 5 },
+          { itemId: 'silver-ore', price: 30, quantity: 10 },
+        ],
         interactions: [
           { type: 'shop', label: '购买物品', description: '查看杂货铺的商品' },
         ],
@@ -101,6 +140,13 @@ const DEFAULT_LOCATIONS: Location[] = [
         type: 'clinic',
         descriptionCN: '张大夫的药铺，售卖药材和丹丸。',
         icon: '🏥',
+        shopInventory: [
+          { itemId: 'health-potion', price: 25, quantity: 15 },
+          { itemId: 'greater-health-potion', price: 70, quantity: 8 },
+          { itemId: 'energy-potion', price: 30, quantity: 10 },
+          { itemId: 'antidote', price: 35, quantity: 10 },
+          { itemId: 'spirit-essence', price: 250, quantity: 2 },
+        ],
         interactions: [
           { type: 'heal', label: '看病', description: '让张大夫诊断治疗' },
           { type: 'shop', label: '购买丹药', description: '购买药材和丹丸' },

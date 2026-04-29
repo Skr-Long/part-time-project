@@ -44,6 +44,7 @@ function getInteractionIcon(type: string): string {
   switch (type) {
     case 'talk': return '💬';
     case 'shop': return '🛒';
+    case 'craft': return '⚒️';
     case 'quest': return '📜';
     case 'train': return '⚔️';
     case 'heal': return '💊';
@@ -142,7 +143,24 @@ export function ExplorationMapScreen() {
         }
         break;
       case 'shop':
-        showNotification('打开商店...');
+        const shopInventory = selectedSubLocation?.shopInventory || currentLocation?.character?.shopInventory;
+        if (shopInventory && shopInventory.length > 0) {
+          dispatch({ 
+            type: 'OPEN_MODAL', 
+            payload: { 
+              modalType: 'shop', 
+              data: { 
+                shopInventory, 
+                shopName: selectedSubLocation?.nameCN || currentLocation?.character?.nameCN || '商店' 
+              } 
+            } 
+          });
+        } else {
+          showNotification('此商店暂无商品');
+        }
+        break;
+      case 'craft':
+        dispatch({ type: 'OPEN_MODAL', payload: { modalType: 'craft' } });
         break;
       case 'quest':
         showNotification('查看任务中...');

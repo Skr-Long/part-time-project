@@ -10,6 +10,8 @@ import MartialArtsModal from './components/martial/MartialArtsModal'
 import StatsModal from './components/stats/StatsModal'
 import MonsterBookModal from './components/monster/MonsterBookModal'
 import SettingsModal from './components/ui/SettingsModal'
+import ShopModal from './components/shop/ShopModal'
+import CraftModal from './components/shop/CraftModal'
 import TitleScreen from './screens/TitleScreen'
 import CharacterCreationScreen from './screens/CharacterCreationScreen'
 import { ExplorationMapScreen } from './screens/ExplorationMapScreen'
@@ -25,6 +27,7 @@ function Header() {
 
 function ModalRouter() {
   const modalType = useGameSelector(state => state.ui.modals.type)
+  const modalData = useGameSelector(state => state.ui.modals.data)
 
   if (modalType === 'overview') return <OverviewModal />
   if (modalType === 'inventory') return <InventoryModal />
@@ -33,6 +36,13 @@ function ModalRouter() {
   if (modalType === 'stats') return <StatsModal />
   if (modalType === 'monster_book') return <MonsterBookModal />
   if (modalType === 'settings') return <SettingsModal />
+  if (modalType === 'shop' && modalData) {
+    return <ShopModal 
+      shopInventory={(modalData as any).shopInventory || []} 
+      shopName={(modalData as any).shopName || '商店'} 
+    />
+  }
+  if (modalType === 'craft') return <CraftModal />
   return null
 }
 
