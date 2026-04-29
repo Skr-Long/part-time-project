@@ -1,137 +1,151 @@
 import Phaser from 'phaser'
 
-export class Player extends Phaser.Physics.Arcade.Sprite {
-  private moveSpeed: number = 200
-  private playerGraphics!: Phaser.GameObjects.Graphics
+export class Player extends Phaser.Physics.Arcade.Image {
+  private moveSpeed: number = 250
   private playerRadius: number = 20
-  private isMoving: boolean = false
-  private targetScale: number = 1
-  private glowEffect!: Phaser.FX.Glow
+  private glowTween!: Phaser.Tweens.Tween | null
+  private playerTexture!: Phaser.Textures.CanvasTexture
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, '')
+
+    this.createPlayerTexture()
+
+    this.setTexture('player')
 
     this.scene.add.existing(this)
     this.scene.physics.add.existing(this)
 
     this.setCollideWorldBounds(true)
-    this.setBounce(0)
-    this.setDrag(500)
+    this.setBounce(0.2)
+    this.setDrag(800, 800)
     this.setMaxVelocity(this.moveSpeed, this.moveSpeed)
 
-    this.body!.setSize(this.playerRadius * 2, this.playerRadius * 2)
-    this.body!.setOffset(0, 0)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    body.setCircle(this.playerRadius)
+    body.setOffset(0, 0)
+  }
 
-    this.createGraphics()
-
-    const fx = this.preFX
-    if (fx) {
-      this.glowEffect = fx.addGlow(0x00d9ff, 4, 4)
+  private createPlayerTexture(): void {
+    if (this.scene.textures.exists('player')) {
+      return
     }
-  }
 
-  private createGraphics(): void {
-    this.playerGraphics = this.scene.add.graphics()
-    this.playerGraphics.x = this.x
-    this.playerGraphics.y = this.y
+    const size = this.playerRadius * 2 + 20
+    const canvas = this.scene.textures.createCanvas('player', size, size)
+    const ctx = canvas.getContext()
 
-    this.drawPlayerShape()
-  }
-
-  private drawPlayerShape(): void {
-    this.playerGraphics.clear()
-
-    const gradient = this.playerGraphics.createLinearGradient(
-      -this.playerRadius,
-      -this.playerRadius,
-      this.playerRadius,
-      this.playerRadius
+    const gradient = ctx.createRadialGradient(
+      size / 2, size / 2, 0,
+      size / 2, size / 2, this.playerRadius + 5
     )
-    gradient.addColorStop(0, 0x00ff88)
-    gradient.addColorStop(1, 0x00d9ff)
+    gradient.addColorStop(0, '#00ffcc')
+    gradient.addColorStop(0.5, '#00d9ff')
+    gradient.addColorStop(1, 'rgba(0, 217, 255, 0)')
 
-    this.playerGraphics.lineStyle(3, 0x00ff88, 1)
-    this.playerGraphics.fillStyle(0x00d9ff, 1)
+    ctx.fillStyle = gradient
+    ctx.beginPath()
+    ctx.arc(size / 2, size / 2, this.playerRadius + 5, 0, Math.PI * 2)
+    ctx.fill()
 
-    this.playerGraphics.fillCircle(0, 0, this.playerRadius)
-    this.playerGraphics.strokeCircle(0, 0, this.playerRadius)
+    ctx.fillStyle = '#00d9ff'
+    ctx.beginPath()
+    ctx.arc(size / 2, size / 2, this.playerRadius, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.strokeStyle = '#00ffcc'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(size / 2, size / 2, this.playerRadius, 0, Math.PI * 2)
+    ctx.stroke()
 
     const eyeOffset = 6
+    const eyeY = size / 2 - 2
     const eyeRadius = 4
-    this.playerGraphics.fillStyle(0xffffff, 1)
-    this.playerGraphics.fillCircle(-eyeOffset, -2, eyeRadius)
-    this.playerGraphics.fillCircle(eyeOffset, -2, eyeRadius)
 
-    this.playerGraphics.fillStyle(0x333333, 1)
-    this.playerGraphics.fillCircle(-eyeOffset, -2, eyeRadius - 1.5)
-    this.playerGraphics.fillCircle(eyeOffset, -2, eyeRadius - 1.5)
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(size / 2 - eyeOffset, eyeY, eyeRadius, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.beginPath()
+    ctx.arc(size / 2 + eyeOffset, eyeY, eyeRadius, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.fillStyle = '#333333'
+    ctx.beginPath()
+    ctx.arc(size / 2 - eyeOffset, eyeY, eyeRadius - 1.5, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.beginPath()
+    ctx.arc(size / 2 + eyeOffset, eyeY, eyeRadius - 1.5, 0, Math.PI * 2)
+    ctx.fill()
+
+    canvas.refresh()
+    this.playerTexture = canvas
   }
 
   public moveLeft(): void {
-    this.setAccelerationX(-800)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    body.setAccelerationX(-800)
+    this.setFlipX(true)
   }
 
   public moveRight(): void {
-    this.setAccelerationX(800)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    body.setAccelerationX(800)
+    this.setFlipX(false)
   }
 
   public moveUp(): void {
-    this.setAccelerationY(-800)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    body.setAccelerationY(-800)
   }
 
   public moveDown(): void {
-    this.setAccelerationY(800)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    body.setAccelerationY(800)
   }
 
   public stopHorizontal(): void {
-    this.setAccelerationX(0)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    body.setAccelerationX(0)
   }
 
   public stopVertical(): void {
-    this.setAccelerationY(0)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    body.setAccelerationY(0)
   }
 
   public setMoving(): void {
-    if (!this.isMoving) {
-      this.isMoving = true
-      this.targetScale = 1.1
-      if (this.glowEffect) {
-        this.glowEffect.outerStrength = 8
-      }
+    if (!this.glowTween || !this.glowTween.isActive()) {
+      this.glowTween = this.scene.tweens.add({
+        targets: this,
+        scaleX: 1.1,
+        scaleY: 1.1,
+        duration: 150,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      })
     }
   }
 
   public setIdle(): void {
-    if (this.isMoving) {
-      this.isMoving = false
-      this.targetScale = 1
-      if (this.glowEffect) {
-        this.glowEffect.outerStrength = 4
-      }
+    if (this.glowTween && this.glowTween.isActive()) {
+      this.glowTween.stop()
+      this.glowTween = null
     }
+    this.scene.tweens.add({
+      targets: this,
+      scale: 1,
+      duration: 100,
+      ease: 'Sine.easeOut'
+    })
   }
 
   public getVelocity(): Phaser.Math.Vector2 {
-    return this.body!.velocity
-  }
-
-  preUpdate(time: number, delta: number): void {
-    super.preUpdate(time, delta)
-
-    if (this.playerGraphics) {
-      this.playerGraphics.x = this.x
-      this.playerGraphics.y = this.y
-
-      const currentScale = this.playerGraphics.scale
-      const newScale = Phaser.Math.Linear(currentScale, this.targetScale, 0.1)
-      this.playerGraphics.setScale(newScale)
-    }
-  }
-
-  destroy(fromScene?: boolean): void {
-    if (this.playerGraphics) {
-      this.playerGraphics.destroy()
-    }
-    super.destroy(fromScene)
+    const body = this.body as Phaser.Physics.Arcade.Body
+    return body.velocity
   }
 }

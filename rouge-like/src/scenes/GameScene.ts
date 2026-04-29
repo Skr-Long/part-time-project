@@ -86,7 +86,6 @@ export class GameScene extends Phaser.Scene {
       graphics.lineBetween(0, y, width, y)
     }
 
-    this.add.existing(graphics)
   }
 
   private createWalls(width: number, height: number): void {
