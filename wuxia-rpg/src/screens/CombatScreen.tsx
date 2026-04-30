@@ -526,12 +526,16 @@ export function CombatScreen() {
       </div>
 
       <div 
-        ref={logContainerRef}
-        className="max-w-6xl mx-auto mb-4 p-4 bg-white/80 rounded-lg shadow max-h-40 overflow-y-auto" 
+        className="max-w-6xl mx-auto mb-4 p-4 bg-white/80 rounded-lg shadow" 
         style={{ borderWidth: '1px', borderColor: '#d1d5db' }}
       >
         <h3 className="font-bold mb-2" style={{ color: '#1a1a1a' }}>战斗日志</h3>
-        {combatLog.slice(-10).map((entry, i) => renderLogEntry(entry, i))}
+        <div 
+          ref={logContainerRef}
+          className="h-32 overflow-y-auto"
+        >
+          {combatLog.slice(-10).map((entry, i) => renderLogEntry(entry, i))}
+        </div>
       </div>
 
       <div className="max-w-6xl mx-auto mb-4">
