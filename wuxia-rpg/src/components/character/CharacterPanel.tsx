@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useGameSelector, useGameDispatch } from '../../contexts/GameContext';
 import type { EquipmentItem, InventoryItem as InventoryItemType, EquipmentSlots, Attributes } from '../../types';
 import { checkEquipmentRequirements, formatItemEffects, getTotalEquipmentEffects } from '../../utils/equipment';
-import { calculateBaseCombatStats } from '../../utils/attributes';
+import { calculateBaseCombatStats, ATTRIBUTE_INFO } from '../../utils/attributes';
 import { calculatePassiveBonuses } from '../../data/martialArts';
 import { EQUIPMENT_RARITY_INFO } from '../../types';
 
@@ -131,6 +131,8 @@ export default function CharacterPanel() {
   const [activeTab, setActiveTab] = useState<'weapon' | 'armor' | 'accessory' | 'all'>('all');
   const [previewItem, setPreviewItem] = useState<EquipmentItem | null>(null);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [showAttributeHelp, setShowAttributeHelp] = useState(false);
+  const [showCombatStatHelp, setShowCombatStatHelp] = useState(false);
 
   const martialArtsBonuses = useMemo(() => {
     return calculatePassiveBonuses(player.knownTechniques);
@@ -504,7 +506,20 @@ export default function CharacterPanel() {
 
             <div className="space-y-2 mb-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-serif font-bold text-sm" style={{ color: '#1a1a1a' }}>基础属性</h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="font-serif font-bold text-sm" style={{ color: '#1a1a1a' }}>基础属性</h3>
+                  <button
+                    onClick={() => setShowAttributeHelp(true)}
+                    className="w-4 h-4 flex items-center justify-center rounded-full text-xs font-bold transition-colors"
+                    style={{ 
+                      backgroundColor: 'rgba(122, 122, 122, 0.2)', 
+                      color: '#7a7a7a' 
+                    }}
+                    title="查看属性说明"
+                  >
+                    ?
+                  </button>
+                </div>
                 <div className="flex gap-3 text-xs">
                   <span style={{ color: '#7a7a7a' }}>
                     <span className="inline-block w-3 h-3 rounded mr-1" style={{ backgroundColor: '#1a1a1a' }}></span>
@@ -526,14 +541,27 @@ export default function CharacterPanel() {
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-serif font-bold text-sm" style={{ color: '#1a1a1a' }}>
-                战斗属性
-                {previewItem && (
-                  <span className="ml-2 text-xs font-normal" style={{ color: '#4a7c59' }}>
-                    (预览模式)
-                  </span>
-                )}
-              </h3>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-serif font-bold text-sm" style={{ color: '#1a1a1a' }}>
+                  战斗属性
+                  {previewItem && (
+                    <span className="ml-2 text-xs font-normal" style={{ color: '#4a7c59' }}>
+                      (预览模式)
+                    </span>
+                  )}
+                </h3>
+                <button
+                  onClick={() => setShowCombatStatHelp(true)}
+                  className="w-4 h-4 flex items-center justify-center rounded-full text-xs font-bold transition-colors"
+                  style={{ 
+                    backgroundColor: 'rgba(122, 122, 122, 0.2)', 
+                    color: '#7a7a7a' 
+                  }}
+                  title="查看战斗属性说明"
+                >
+                  ?
+                </button>
+              </div>
               {renderCombatStatRow('生命值', '❤️', 'maxHP', statComparisons?.maxHP || null)}
               {renderCombatStatRow('内功值', '💫', 'maxEnergy', statComparisons?.maxEnergy || null)}
               {renderCombatStatRow('攻击力', '⚔️', 'attack', statComparisons?.attack || null)}
@@ -896,6 +924,159 @@ export default function CharacterPanel() {
           </div>
         </div>
       </div>
+
+      {showAttributeHelp && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowAttributeHelp(false)}
+        >
+          <div
+            className="w-full max-w-lg flex flex-col rounded-lg shadow-2xl border-2 max-h-96"
+            style={{
+              backgroundColor: '#e8e0d0',
+              borderColor: 'rgba(122, 122, 122, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
+              <h3 className="text-lg font-serif font-bold" style={{ color: '#1a1a1a' }}>基础属性说明</h3>
+              <button
+                onClick={() => setShowAttributeHelp(false)}
+                className="w-6 h-6 flex items-center justify-center"
+                style={{ color: '#7a7a7a' }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              <div className="space-y-4">
+                {ATTRIBUTE_INFO.map(attr => (
+                  <div key={attr.key}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">{ATTR_ICONS[attr.key]}</span>
+                      <span className="font-serif font-bold" style={{ color: ATTR_COLORS[attr.key] }}>
+                        {attr.labelCN}
+                      </span>
+                    </div>
+                    <p className="text-sm mb-2" style={{ color: '#4a4a4a' }}>
+                      {attr.description}
+                    </p>
+                    <div className="pl-4 space-y-1">
+                      {attr.effects.map((effect, idx) => (
+                        <div key={idx} className="text-xs" style={{ color: '#7a7a7a' }}>
+                          <span className="font-medium" style={{ color: '#1a1a1a' }}>{effect.statCN}：</span>
+                          <span>{effect.description}</span>
+                          <div className="mt-0.5 pl-2" style={{ color: '#7a7a7a' }}>
+                            计算公式：<code style={{ backgroundColor: 'rgba(122, 122, 122, 0.1)', padding: '1px 4px', borderRadius: '2px' }}>
+                              {effect.formula}
+                            </code>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCombatStatHelp && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowCombatStatHelp(false)}
+        >
+          <div
+            className="w-full max-w-md flex flex-col rounded-lg shadow-2xl border-2"
+            style={{
+              backgroundColor: '#e8e0d0',
+              borderColor: 'rgba(122, 122, 122, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
+              <h3 className="text-lg font-serif font-bold" style={{ color: '#1a1a1a' }}>战斗属性说明</h3>
+              <button
+                onClick={() => setShowCombatStatHelp(false)}
+                className="w-6 h-6 flex items-center justify-center"
+                style={{ color: '#7a7a7a' }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="text-sm" style={{ color: '#4a4a4a' }}>
+                <p className="mb-2 font-bold" style={{ color: '#1a1a1a' }}>属性组成：</p>
+                <p className="text-xs mb-1">
+                  <span className="font-medium" style={{ color: '#1a1a1a' }}>总值</span> = 基础值（属性+等级） + 武学加成 + 装备加成
+                </p>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium">❤️ 生命值</span>
+                  <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                    公式：100 + 体质 × 10 + 等级 × 5
+                  </div>
+                  <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                    表示角色的存活能力，生命值为0时角色死亡
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium">💫 内功值</span>
+                  <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                    公式：50 + 等级 × 10 + 有效悟性 × 5
+                  </div>
+                  <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                    使用武学技能需要消耗内功值
+                  </div>
+                  <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                    有效悟性 = 悟性 + 根骨 × 0.5
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium">⚔️ 攻击力</span>
+                  <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                    公式：10 + 力量 × 5 + 等级 × 2
+                  </div>
+                  <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                    影响对敌人造成的伤害
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium">🛡️ 防御力</span>
+                  <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                    公式：5 + 根骨 × 3 + 等级 × 1
+                  </div>
+                  <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                    减少受到的伤害
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium">💨 速度</span>
+                  <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                    公式：10 + 敏捷 × 2 + 等级 × 1
+                  </div>
+                  <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                    决定战斗中的行动顺序，速度越快越先行动
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium">🎯 暴击率</span>
+                  <div className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                    公式：max(0, 幸运) × 0.5%
+                  </div>
+                  <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                    暴击时造成双倍伤害
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
