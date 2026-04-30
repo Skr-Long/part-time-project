@@ -417,6 +417,18 @@ export const MATERIALS: Record<string, InventoryItem> = {
     description: 'Legendary dragon scale', descriptionCN: '传说中的龙鳞',
     effects: {}, stackable: true, value: 1000,
   },
+  'green-herb': {
+    id: 'green-herb', name: 'Green Herb', nameCN: '青叶草',
+    type: 'material', quantity: 1,
+    description: 'Herb for alchemy', descriptionCN: '可用于炼药的草本',
+    effects: {}, stackable: true, value: 5,
+  },
+  'bandit-booty': {
+    id: 'bandit-booty', name: 'Bandit Booty', nameCN: '山贼赃物',
+    type: 'material', quantity: 1,
+    description: 'Stolen goods from bandits', descriptionCN: '山贼藏匿的财物',
+    effects: {}, stackable: true, value: 50,
+  },
 };
 
 export const ITEMS: Record<string, InventoryItem | EquipmentItem> = {
