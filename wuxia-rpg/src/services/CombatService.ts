@@ -291,14 +291,14 @@ export class CombatService {
       enemy.isDefending
     );
 
-    let actionText = `⚔️ 你发动攻击！造成 ${damageResult.damage} 点伤害`;
+    let actionText = `⚔️ 你身形一闪！发动攻击！造成 ${damageResult.damage} 点伤害`;
     if (damageResult.isCritical) {
-      actionText += ' (暴击!)';
+      actionText += ' 💥 暴击! 致命一击!';
     }
     if (damageResult.isBlocked) {
       actionText += ` (减免 ${damageResult.blockedAmount} 点)`;
     }
-    actionText += '！';
+    actionText += '！💪';
 
     const logEntry: CombatLogEntry = {
       timestamp: Date.now(),
@@ -328,7 +328,7 @@ export class CombatService {
         type: 'heal',
         source: 'player',
         value: healAmount,
-        text: `${skill.icon} 你施展了「${skill.name}」！恢复 ${healAmount} 点气血！`,
+        text: `${skill.icon} 你双手合十，气运丹田！施展「${skill.name}」！恢复 ${healAmount} 点气血！✨ 感觉好多了！`,
         color: 'text-jade',
       };
 
@@ -354,14 +354,14 @@ export class CombatService {
       enemy.isDefending
     );
 
-    let actionText = `${skill.icon} 你施展了「${skill.name}」！造成 ${damageResult.damage} 点伤害`;
+    let actionText = `${skill.icon} 你大喝一声！施展「${skill.name}」！造成 ${damageResult.damage} 点伤害`;
     if (damageResult.isCritical) {
-      actionText += ' (暴击!)';
+      actionText += ' 💥 暴击! 石破天惊!';
     }
     if (damageResult.isBlocked) {
       actionText += ` (减免 ${damageResult.blockedAmount} 点)`;
     }
-    actionText += '！';
+    actionText += '！💪';
 
     const logEntry: CombatLogEntry = {
       timestamp: Date.now(),
@@ -392,13 +392,14 @@ export class CombatService {
       player.isDefending
     );
 
-    let actionText = `🩸 ${enemy.name} 发动攻击！对你造成 ${damageResult.damage} 点伤害！`;
+    let actionText = `👹 ${enemy.name} 张牙舞爪扑过来！对你造成 ${damageResult.damage} 点伤害！`;
     if (damageResult.isCritical) {
-      actionText += ' (暴击!)';
+      actionText += ' 💥 暴击! 一击必杀!';
     }
     if (damageResult.isBlocked) {
       actionText += ` (防御姿态)`;
     }
+    actionText += ' 😱';
 
     const logEntry: CombatLogEntry = {
       timestamp: Date.now(),
@@ -455,8 +456,8 @@ export class CombatService {
       source: 'player',
       value: 0,
       text: newIsDefending 
-        ? `🛡️ 你进入防御姿态！(防御减免 ${Math.floor(participant.combatStats.defense * 0.5)} 点，速度槽积累减半)`
-        : '🛡️ 你取消了防御姿态！',
+        ? `🛡️ 你双掌护胸！进入防御姿态！(防御减免 ${Math.floor(participant.combatStats.defense * 0.5)} 点，速度槽积累减半) 💪`
+        : '🛡️ 你收起盾牌！取消了防御姿态！😎',
       color: 'text-jade',
     };
 
@@ -478,8 +479,8 @@ export class CombatService {
       source: 'player',
       value: 0,
       text: success 
-        ? '🏃 你成功逃离了战斗！'
-        : '🏃 逃跑失败！敌人挡住了你的去路！',
+        ? '🏃 你身形一晃！成功逃离了战斗！🎉 溜之大吉！'
+        : '🏃 你转身想跑！但逃跑失败！敌人挡住了你的去路！😱 跑不掉了！',
       color: success ? 'text-jade' : 'text-red-600',
     };
 

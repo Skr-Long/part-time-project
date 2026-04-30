@@ -90,7 +90,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             type: 'info',
             source: 'player',
             value: 0,
-            text: `与 ${enemy.nameCN} 展开战斗！`,
+            text: `⚔️ 狭路相逢！与 ${enemy.nameCN} 展开激烈战斗！💪 准备好你的武功！`,
             color: 'text-jade',
           }],
           isPlayerTurn: true,

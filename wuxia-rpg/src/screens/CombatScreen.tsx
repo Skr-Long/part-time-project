@@ -169,12 +169,12 @@ export function CombatScreen() {
         currentIsDefending
       );
       
-      const critMessage = damageResult.isCritical ? ' (暴击!)' : '';
+      const critMessage = damageResult.isCritical ? ' 💥 暴击! 一击必杀!' : '';
       
       currentDispatch({ 
         type: 'EXECUTE_COMBAT_ACTION', 
         payload: { 
-          action: `🩸 ${currentEnemy.nameCN} 发动攻击！对你造成 ${damageResult.damage} 点伤害！${critMessage}${defendMessage}`, 
+          action: `👹 ${currentEnemy.nameCN} 张牙舞爪扑过来！对你造成 ${damageResult.damage} 点伤害！${critMessage}${defendMessage} 😱`, 
           damage: -damageResult.damage 
         } 
       });
@@ -201,7 +201,7 @@ export function CombatScreen() {
       dispatch({ 
         type: 'EXECUTE_COMBAT_ACTION', 
         payload: { 
-          action: `${skill.icon} 你施展了「${skill.name}」！恢复 ${healAmount} 点气血！`, 
+          action: `${skill.icon} 你双手合十，气运丹田！施展「${skill.name}」！恢复 ${healAmount} 点气血！✨ 感觉好多了！`, 
           isHeal: true,
           healAmount 
         } 
@@ -233,21 +233,21 @@ export function CombatScreen() {
     );
 
     if (action.type === 'skill' && action.skill) {
-      const critText = damageResult.isCritical ? ' (暴击!)' : '';
+      const critText = damageResult.isCritical ? ' 💥 暴击! 石破天惊!' : '';
       dispatch({ 
         type: 'EXECUTE_COMBAT_ACTION', 
         payload: { 
-          action: `${action.skill.icon} 你施展了「${action.skill.name}」！造成 ${damageResult.damage} 点伤害${critText}！`, 
+          action: `${action.skill.icon} 你大喝一声！施展「${action.skill.name}」！造成 ${damageResult.damage} 点伤害${critText}！💪`, 
           damage: damageResult.damage,
           isCrit: damageResult.isCritical
         } 
       });
     } else {
-      const critText = damageResult.isCritical ? ' (暴击!)' : '';
+      const critText = damageResult.isCritical ? ' 💥 暴击! 致命一击!' : '';
       dispatch({ 
         type: 'EXECUTE_COMBAT_ACTION', 
         payload: { 
-          action: `⚔️ 你发动攻击！造成 ${damageResult.damage} 点伤害${critText}！`, 
+          action: `⚔️ 你身形一闪！发动攻击！造成 ${damageResult.damage} 点伤害${critText}！💪`, 
           damage: damageResult.damage,
           isCrit: damageResult.isCritical
         } 
@@ -312,11 +312,11 @@ export function CombatScreen() {
   const handleAction = (type: 'attack' | 'skill' | 'defend', skill?: CombatSkill) => {
     if (type === 'defend') {
       if (isDefending) {
-        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: '🛡️ 你取消了防御姿态！' } });
+        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: '🛡️ 你收起盾牌！取消了防御姿态！😎' } });
         setIsDefending(false);
       } else {
         setIsDefending(true);
-        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你进入防御姿态！(防御减免 ${Math.floor(playerBaseStats.defense * 0.5)} 点，速度槽积累减半)` } });
+        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你双掌护胸！进入防御姿态！(防御减免 ${Math.floor(playerBaseStats.defense * 0.5)} 点，速度槽积累减半) 💪` } });
       }
       return;
     }
@@ -369,37 +369,62 @@ export function CombatScreen() {
   const playerMaxEnergy = player.combatStats.maxEnergy;
 
   const renderLogEntry = (entry: CombatLogEntry, index: number) => {
-    let color = '#4a4a4a';
-    let fontWeight = 'normal';
-    
-    if (entry.color === 'text-red-600') {
-      color = '#dc2626';
-    } else if (entry.color === 'text-jade') {
-      color = '#16a34a';
-    }
-
     const hasCrit = entry.text.includes('暴击');
-    const isHeal = entry.text.includes('恢复');
-    const isDefend = entry.text.includes('防御');
+    const isHeal = entry.type === 'heal';
+    const isDamage = entry.type === 'damage';
     
-    if (hasCrit) {
-      fontWeight = 'bold';
+    const valueColor = isHeal ? '#16a34a' : (isDamage && entry.value > 0 ? '#1e40af' : '#dc2626');
+    const fontWeight = hasCrit || isHeal ? 'bold' : 'normal';
+
+    let textParts: React.ReactNode[] = [];
+    
+    // 处理数值 - 找到所有数字并高亮显示
+    const numberRegex = /(\d+)/g;
+    let match;
+    let lastIndex = 0;
+    
+    while ((match = numberRegex.exec(entry.text)) !== null) {
+      if (match.index > lastIndex) {
+        textParts.push(
+          <span key={`text-${lastIndex}`} style={{ color: '#1a1a1a' }}>
+            {entry.text.slice(lastIndex, match.index)}
+          </span>
+        );
+      }
+      
+      // 判断这个数字是否是伤害/治疗数值
+      const isValueNumber = (isDamage || isHeal) && parseInt(match[1]) === Math.abs(entry.value);
+      
+      textParts.push(
+        <span 
+          key={`num-${match.index}`} 
+          style={{ 
+            color: isValueNumber ? valueColor : '#1a1a1a',
+            fontWeight: isValueNumber ? fontWeight : 'normal'
+          }}
+        >
+          {match[1]}
+        </span>
+      );
+      
+      lastIndex = match.index + match[1].length;
     }
-    if (isHeal) {
-      color = '#16a34a';
-      fontWeight = 'bold';
-    }
-    if (isDefend) {
-      color = '#16a34a';
+    
+    if (lastIndex < entry.text.length) {
+      textParts.push(
+        <span key={`text-${lastIndex}`} style={{ color: '#1a1a1a' }}>
+          {entry.text.slice(lastIndex)}
+        </span>
+      );
     }
 
     return (
       <p 
         key={index} 
         className="text-sm py-0.5" 
-        style={{ color, fontWeight }}
+        style={{ color: '#1a1a1a' }}
       >
-        {entry.text}
+        {textParts.length > 0 ? textParts : entry.text}
       </p>
     );
   };

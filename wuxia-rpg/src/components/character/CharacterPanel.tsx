@@ -24,7 +24,7 @@ const ATTR_LABELS: Record<string, string> = {
   strength: '力量',
   agility: '敏捷',
   physique: '根骨',
-  luck: '福缘',
+  luck: '幸运',
 };
 
 const ATTR_ICONS: Record<string, string> = {
