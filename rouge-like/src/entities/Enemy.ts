@@ -1,6 +1,9 @@
 import Phaser from 'phaser'
 
+let enemyIdCounter = 0;
+
 export class Enemy extends Phaser.Physics.Arcade.Image {
+  private enemyId: number;
   private enemyRadius: number = 18
   private moveSpeed: number = 100
   private maxHealth: number = 3
@@ -21,6 +24,7 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
   ) {
     super(scene, x, y, '')
 
+    this.enemyId = ++enemyIdCounter
     this.targetPlayer = player
 
     this.createEnemyTexture()
@@ -45,7 +49,10 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
 
     const size = this.enemyRadius * 2
     const canvas = this.scene.textures.createCanvas('enemy', size, size)
+    if (!canvas) return
+    
     const ctx = canvas.getContext()
+    if (!ctx) return
 
     ctx.save()
     ctx.translate(size / 2, size / 2)
@@ -96,7 +103,7 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
     canvas.refresh()
   }
 
-  public update(currentTime: number): void {
+  public update(_currentTime: number): void {
     if (!this.targetPlayer || !this.targetPlayer.active) {
       return
     }
@@ -152,6 +159,10 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
   }
 
   public getMaxHealth(): number {
-    return this.maxHealth
+    return this.maxHealth;
+  }
+
+  public getEnemyId(): number {
+    return this.enemyId;
   }
 }

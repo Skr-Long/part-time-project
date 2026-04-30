@@ -2,6 +2,9 @@ import Phaser from 'phaser'
 import { Player } from '../entities/Player'
 import { Enemy } from '../entities/Enemy'
 import { Bullet } from '../entities/Bullet'
+import { Mine } from '../entities/Mine'
+import { WeaponType } from '../entities/WeaponTypes'
+import type { WeaponConfig } from '../entities/WeaponTypes'
 import { UIManager } from '../managers/UIManager'
 import { EnemySpawner } from '../managers/EnemySpawner'
 
@@ -16,6 +19,7 @@ export class GameScene extends Phaser.Scene {
 
   private playerBullets!: Phaser.Physics.Arcade.Group
   private enemyBullets!: Phaser.Physics.Arcade.Group
+  private playerMines!: Phaser.Physics.Arcade.Group
 
   private worldWidth: number = 3000
   private worldHeight: number = 2000
@@ -58,6 +62,11 @@ export class GameScene extends Phaser.Scene {
       runChildUpdate: false
     })
 
+    this.playerMines = this.physics.add.group({
+      classType: Mine,
+      runChildUpdate: false
+    })
+
     this.enemySpawner = new EnemySpawner(this, this.player, this.worldWidth, this.worldHeight)
 
     this.uiManager = new UIManager(this, this.player)
@@ -87,6 +96,17 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-ESC', () => {
       this.isPaused = !this.isPaused
       this.physics.world.timeScale = this.isPaused ? 0 : 1
+    })
+
+    // 武器切换
+    this.input.keyboard!.on('keydown-Q', () => {
+      const newWeapon = this.player.switchToPrevWeapon()
+      console.log(`切换武器: ${newWeapon.name}`)
+    })
+
+    this.input.keyboard!.on('keydown-E', () => {
+      const newWeapon = this.player.switchToNextWeapon()
+      console.log(`切换武器: ${newWeapon.name}`)
     })
 
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08)
@@ -182,9 +202,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleBulletEnemyCollision(
-    bulletObj: Phaser.GameObjects.GameObject,
-    enemyObj: Phaser.GameObjects.GameObject
+    bulletObj: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
+    enemyObj: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
   ): void {
+    if (!(bulletObj instanceof Bullet) || !(enemyObj instanceof Enemy)) {
+      return
+    }
+    
     const bullet = bulletObj as Bullet
     const enemy = enemyObj as Enemy
 
@@ -192,9 +216,26 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const enemyId = enemy.getEnemyId()
+
+    // 检查是否已经击中过这个敌人（防止穿透时重复计算）
+    if (bullet.hasHitEnemy(enemyId)) {
+      return
+    }
+
+    // 标记敌人为已击中
+    bullet.markEnemyAsHit(enemyId)
+
     const isDead = enemy.takeDamage(bullet.getDamage())
 
-    this.playerBullets.remove(bullet, true, true)
+    // 处理穿透逻辑
+    if (bullet.canPierce()) {
+      // 子弹可以穿透，减少穿透计数并降低伤害
+      bullet.registerHit()
+    } else {
+      // 子弹不能穿透，销毁子弹
+      this.playerBullets.remove(bullet, true, true)
+    }
 
     if (isDead) {
       this.player.addExperience(enemy.getExperienceValue())
@@ -206,9 +247,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleBulletWallCollision(
-    bulletObj: Phaser.GameObjects.GameObject,
-    _wall: Phaser.GameObjects.GameObject
+    bulletObj: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
+    _wall: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
   ): void {
+    if (!(bulletObj instanceof Bullet)) {
+      return
+    }
+    
     const bullet = bulletObj as Bullet
     if (bullet.active) {
       bullet.destroy()
@@ -216,9 +261,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleEnemyBulletPlayerCollision(
-    bulletObj: Phaser.GameObjects.GameObject,
-    playerObj: Phaser.GameObjects.GameObject
+    bulletObj: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
+    playerObj: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
   ): void {
+    if (!(bulletObj instanceof Bullet) || !(playerObj instanceof Player)) {
+      return
+    }
+    
     const bullet = bulletObj as Bullet
     const player = playerObj as Player
 
@@ -235,9 +284,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handlePlayerEnemyOverlap(
-    playerObj: Phaser.GameObjects.GameObject,
-    enemyObj: Phaser.GameObjects.GameObject
+    playerObj: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
+    enemyObj: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
   ): void {
+    if (!(playerObj instanceof Player) || !(enemyObj instanceof Enemy)) {
+      return
+    }
+    
     const player = playerObj as Player
     const enemy = enemyObj as Enemy
     const currentTime = this.time.now
@@ -295,6 +348,7 @@ export class GameScene extends Phaser.Scene {
     this.handleShooting(time)
     this.enemySpawner.update(time)
     this.updateBullets(time)
+    this.updateMines(time)
     this.uiManager.update()
   }
 
@@ -333,27 +387,86 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    const worldPoint = this.cameras.main.getWorldPoint(this.pointer.x, this.pointer.y)
+    const currentWeaponType = this.player.getCurrentWeaponType()
+    const currentWeaponConfig = this.player.getCurrentWeaponConfig()
 
-    const dx = worldPoint.x - this.player.x
-    const dy = worldPoint.y - this.player.y
+    if (currentWeaponType === WeaponType.MINE) {
+      // 放置地雷
+      this.placeMine(currentWeaponConfig)
+    } else {
+      // 发射子弹类武器
+      const worldPoint = this.cameras.main.getWorldPoint(this.pointer.x, this.pointer.y)
 
-    const length = Math.sqrt(dx * dx + dy * dy)
-    if (length === 0) {
-      return
+      const dx = worldPoint.x - this.player.x
+      const dy = worldPoint.y - this.player.y
+
+      const length = Math.sqrt(dx * dx + dy * dy)
+      if (length === 0) {
+        return
+      }
+
+      this.fireBullets(dx, dy, currentWeaponConfig)
     }
 
-    const bullet = new Bullet(this, this.player.x, this.player.y, dx, dy, false, 1)
-    this.playerBullets.add(bullet)
-
     this.player.updateShootTime(currentTime)
+  }
+
+  private placeMine(config: WeaponConfig): void {
+    const mine = new Mine(this, this.player.x, this.player.y, config.damage, config.range || 100)
+    this.playerMines.add(mine)
+  }
+
+  private fireBullets(dx: number, dy: number, config: WeaponConfig): void {
+    const bulletCount = config.bulletCount || 1
+    const spreadAngle = config.spreadAngle || 0
+
+    if (bulletCount === 1 || spreadAngle === 0) {
+      // 单发射击
+      this.createBullet(dx, dy, config)
+    } else {
+      // 散弹射击
+      const angle = Math.atan2(dy, dx)
+      const angleIncrement = Phaser.Math.DegToRad(spreadAngle) / (bulletCount - 1)
+      const startAngle = angle - Phaser.Math.DegToRad(spreadAngle) / 2
+
+      for (let i = 0; i < bulletCount; i++) {
+        const currentAngle = startAngle + angleIncrement * i
+        const bulletDx = Math.cos(currentAngle)
+        const bulletDy = Math.sin(currentAngle)
+        this.createBullet(bulletDx, bulletDy, config)
+      }
+    }
+  }
+
+  private createBullet(dx: number, dy: number, config: WeaponConfig): void {
+    const bullet = new Bullet(
+      this,
+      this.player.x,
+      this.player.y,
+      dx,
+      dy,
+      false,
+      config.damage,
+      config.type,
+      config.pierceCount || 0,
+      config.damageDropoff || 0,
+      config.range || Infinity
+    )
+    this.playerBullets.add(bullet)
   }
 
   private updateBullets(currentTime: number): void {
     this.playerBullets.getChildren().forEach((child) => {
       const bullet = child as Bullet
-      if (bullet.active && bullet.checkLifeTime(currentTime)) {
-        bullet.destroy()
+      if (bullet.active) {
+        // 检查生命周期
+        if (bullet.checkLifeTime(currentTime)) {
+          bullet.destroy()
+        }
+        // 检查射程
+        else if (bullet.checkRange()) {
+          bullet.destroy()
+        }
       }
     })
 
@@ -363,6 +476,52 @@ export class GameScene extends Phaser.Scene {
         bullet.destroy()
       }
     })
+  }
+
+  private updateMines(currentTime: number): void {
+    const mines = this.playerMines.getChildren() as Mine[]
+    const enemies = this.enemySpawner.getEnemies()
+    
+    for (const mine of mines) {
+      if (!mine.active) continue
+      
+      // 更新地雷状态
+      mine.update(currentTime)
+      
+      // 检查是否需要爆炸
+      if (mine.checkShouldExplode(enemies)) {
+        // 处理爆炸伤害
+        this.handleMineExplosion(mine, enemies)
+        
+        // 触发地雷爆炸视觉效果
+        mine.explode()
+      }
+    }
+  }
+
+  private handleMineExplosion(mine: Mine, enemies: Phaser.Physics.Arcade.Group): void {
+    const enemiesList = enemies.getChildren() as Enemy[]
+    
+    for (const enemy of enemiesList) {
+      if (!enemy.active) continue
+      
+      const distance = Phaser.Math.Distance.Between(
+        mine.x, mine.y,
+        enemy.x, enemy.y
+      )
+      
+      if (distance <= mine.getExplosionRadius()) {
+        const damage = mine.getExplosionDamage(distance)
+        const isDead = enemy.takeDamage(damage)
+        
+        if (isDead) {
+          this.player.addExperience(enemy.getExperienceValue())
+          this.player.addGold(enemy.getGoldValue())
+          this.enemySpawner.removeEnemy(enemy)
+          this.addDeathEffect(enemy.x, enemy.y)
+        }
+      }
+    }
   }
 
   private createWalls(width: number, height: number): void {
@@ -384,7 +543,7 @@ export class GameScene extends Phaser.Scene {
     this.walls.add(rightWall)
   }
 
-  private createObstacles(width: number, height: number): void {
+  private createObstacles(_width: number, _height: number): void {
     const obstaclePositions = [
       { x: 300, y: 300, w: 120, h: 180 },
       { x: 800, y: 250, w: 180, h: 120 },

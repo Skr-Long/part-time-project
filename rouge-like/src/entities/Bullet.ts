@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { WeaponType } from './WeaponTypes'
 
 export class Bullet extends Phaser.Physics.Arcade.Image {
   private bulletRadius: number = 6
@@ -7,6 +8,14 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
   private isEnemyBullet: boolean = false
   private lifeTime: number = 3000
   private spawnTime: number = 0
+  
+  // 武器特性
+  private weaponType: WeaponType = WeaponType.NORMAL
+  private currentPierceCount: number = 0
+  private damageDropoff: number = 0
+  private maxRange: number = Infinity
+  private startPosition: Phaser.Math.Vector2
+  private hitEnemies: Set<number> = new Set()
 
   constructor(
     scene: Phaser.Scene,
@@ -15,12 +24,21 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
     velocityX: number,
     velocityY: number,
     isEnemyBullet: boolean = false,
-    damage: number = 1
+    damage: number = 1,
+    weaponType: WeaponType = WeaponType.NORMAL,
+    _pierceCount: number = 0,
+    damageDropoff: number = 0,
+    maxRange: number = Infinity
   ) {
     super(scene, x, y, '')
 
     this.isEnemyBullet = isEnemyBullet
     this.damage = damage
+    this.weaponType = weaponType
+    this.currentPierceCount = _pierceCount
+    this.damageDropoff = damageDropoff
+    this.maxRange = maxRange
+    this.startPosition = new Phaser.Math.Vector2(x, y)
 
     const textureKey = isEnemyBullet ? 'enemyBullet' : 'playerBullet'
     this.createBulletTexture(textureKey)
@@ -49,7 +67,10 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
 
     const size = this.bulletRadius * 2 + 4
     const canvas = this.scene.textures.createCanvas(key, size, size)
+    if (!canvas) return
+    
     const ctx = canvas.getContext()
+    if (!ctx) return
 
     ctx.save()
     ctx.translate(size / 2, size / 2)
@@ -113,5 +134,45 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
 
   public checkLifeTime(currentTime: number): boolean {
     return currentTime - this.spawnTime > this.lifeTime
+  }
+
+  public getWeaponType(): WeaponType {
+    return this.weaponType
+  }
+
+  public canPierce(): boolean {
+    return this.currentPierceCount > 0
+  }
+
+  public registerHit(): void {
+    if (this.currentPierceCount > 0) {
+      this.currentPierceCount--
+      this.damage = Math.max(0.1, this.damage - this.damageDropoff)
+    }
+  }
+
+  public hasHitEnemy(enemyId: number): boolean {
+    return this.hitEnemies.has(enemyId)
+  }
+
+  public markEnemyAsHit(enemyId: number): void {
+    this.hitEnemies.add(enemyId)
+  }
+
+  public checkRange(): boolean {
+    if (this.maxRange === Infinity) {
+      return false
+    }
+    
+    const distance = Phaser.Math.Distance.Between(
+      this.startPosition.x, this.startPosition.y,
+      this.x, this.y
+    )
+    
+    return distance > this.maxRange
+  }
+
+  public getMaxRange(): number {
+    return this.maxRange
   }
 }

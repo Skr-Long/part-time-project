@@ -54,7 +54,7 @@ export class MenuScene extends Phaser.Scene {
     this.addGeometricDecorations(width, height)
   }
 
-  private addGeometricDecorations(width: number, height: number): void {
+  private addGeometricDecorations(width: number, _height: number): void {
     const leftTriangles = this.add.graphics()
     leftTriangles.fillStyle(0x00d9ff, 0.1)
     leftTriangles.lineStyle(2, 0x00d9ff, 0.2)

@@ -29,14 +29,22 @@ export class UIManager {
     const size = 32
 
     const fullCanvas = this.scene.textures.createCanvas(this.heartFullKey, size, size)
-    const fullCtx = fullCanvas.getContext()
-    this.drawHeart(fullCtx, size, '#e94560', '#ff6464')
-    fullCanvas.refresh()
+    if (fullCanvas) {
+      const fullCtx = fullCanvas.getContext()
+      if (fullCtx) {
+        this.drawHeart(fullCtx, size, '#e94560', '#ff6464')
+        fullCanvas.refresh()
+      }
+    }
 
     const emptyCanvas = this.scene.textures.createCanvas(this.heartEmptyKey, size, size)
-    const emptyCtx = emptyCanvas.getContext()
-    this.drawHeart(emptyCtx, size, '#333333', '#555555')
-    emptyCanvas.refresh()
+    if (emptyCanvas) {
+      const emptyCtx = emptyCanvas.getContext()
+      if (emptyCtx) {
+        this.drawHeart(emptyCtx, size, '#333333', '#555555')
+        emptyCanvas.refresh()
+      }
+    }
   }
 
   private drawHeart(

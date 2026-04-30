@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { WeaponType, WEAPON_CONFIGS } from './WeaponTypes';
+import type { WeaponConfig } from './WeaponTypes';
 
 export class Player extends Phaser.Physics.Arcade.Image {
   private moveSpeed: number = 250;
@@ -14,7 +16,17 @@ export class Player extends Phaser.Physics.Arcade.Image {
   private invincibleTimer: number = 0;
 
   private lastShootTime: number = 0;
-  private shootCooldown: number = 300;
+  
+  // 武器系统
+  private availableWeapons: WeaponType[] = [
+    WeaponType.NORMAL,
+    WeaponType.PIERCING,
+    WeaponType.SPREAD,
+    WeaponType.RANGE,
+    WeaponType.MINE
+  ];
+  private currentWeaponIndex: number = 0;
+  private currentWeaponType: WeaponType = WeaponType.NORMAL;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, '');
@@ -36,7 +48,11 @@ export class Player extends Phaser.Physics.Arcade.Image {
     }
     const size = this.playerRadius * 2;
     const canvas = this.scene.textures.createCanvas('player', size, size);
+    if (!canvas) return;
+    
     const ctx = canvas.getContext();
+    if (!ctx) return;
+    
     ctx.save();
     ctx.translate(size / 2, size / 2);
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.playerRadius + 8);
@@ -190,7 +206,8 @@ export class Player extends Phaser.Physics.Arcade.Image {
   }
 
   public canShoot(currentTime: number): boolean {
-    return currentTime - this.lastShootTime >= this.shootCooldown;
+    const currentConfig = this.getCurrentWeaponConfig();
+    return currentTime - this.lastShootTime >= currentConfig.cooldown;
   }
 
   public updateShootTime(currentTime: number): void {
@@ -205,6 +222,41 @@ export class Player extends Phaser.Physics.Arcade.Image {
         this.setAlpha(1);
       }
     }
+  }
+
+  public getCurrentWeaponConfig(): WeaponConfig {
+    return WEAPON_CONFIGS[this.currentWeaponType];
+  }
+
+  public getCurrentWeaponType(): WeaponType {
+    return this.currentWeaponType;
+  }
+
+  public switchToNextWeapon(): WeaponConfig {
+    this.currentWeaponIndex = (this.currentWeaponIndex + 1) % this.availableWeapons.length;
+    this.currentWeaponType = this.availableWeapons[this.currentWeaponIndex];
+    this.showWeaponSwitchEffect();
+    return this.getCurrentWeaponConfig();
+  }
+
+  public switchToPrevWeapon(): WeaponConfig {
+    this.currentWeaponIndex = (this.currentWeaponIndex - 1 + this.availableWeapons.length) % this.availableWeapons.length;
+    this.currentWeaponType = this.availableWeapons[this.currentWeaponIndex];
+    this.showWeaponSwitchEffect();
+    return this.getCurrentWeaponConfig();
+  }
+
+  private showWeaponSwitchEffect(): void {
+    // 武器切换时的视觉效果
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: 1.1,
+      scaleY: 1.1,
+      duration: 150,
+      yoyo: true,
+      repeat: 1,
+      ease: 'Sine.easeInOut'
+    });
   }
 
   destroy(fromScene?: boolean): void {
