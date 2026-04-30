@@ -72,7 +72,7 @@ export const WEAPON_CONFIGS: Record<WeaponType, WeaponConfig> = {
     name: '地雷',
     damage: 5,
     speed: 0,
-    cooldown: 2000,
+    cooldown: 800,
     bulletCount: 1,
     pierceCount: 0,
     damageDropoff: 0,

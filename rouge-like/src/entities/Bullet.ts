@@ -28,7 +28,8 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
     weaponType: WeaponType = WeaponType.NORMAL,
     _pierceCount: number = 0,
     damageDropoff: number = 0,
-    maxRange: number = Infinity
+    maxRange: number = Infinity,
+    speed: number = 500
   ) {
     super(scene, x, y, '')
 
@@ -38,6 +39,7 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
     this.currentPierceCount = _pierceCount
     this.damageDropoff = damageDropoff
     this.maxRange = maxRange
+    this.speed = speed
     this.startPosition = new Phaser.Math.Vector2(x, y)
 
     const textureKey = isEnemyBullet ? 'enemyBullet' : 'playerBullet'
@@ -53,8 +55,15 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
     body.onWorldBounds = true
 
     const length = Math.sqrt(velocityX * velocityX + velocityY * velocityY)
+    console.log(`Bullet 构造: velocityX=${velocityX}, velocityY=${velocityY}, length=${length}, speed=${this.speed}`)
+    
     if (length > 0) {
-      body.setVelocity((velocityX / length) * this.speed, (velocityY / length) * this.speed)
+      const vx = (velocityX / length) * this.speed
+      const vy = (velocityY / length) * this.speed
+      console.log(`设置子弹速度: vx=${vx}, vy=${vy}`)
+      body.setVelocity(vx, vy)
+    } else {
+      console.log('警告: 子弹速度向量长度为 0！')
     }
 
     this.spawnTime = scene.time.now

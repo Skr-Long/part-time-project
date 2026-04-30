@@ -40,6 +40,12 @@ export class Player extends Phaser.Physics.Arcade.Image {
     this.setMaxVelocity(this.moveSpeed, this.moveSpeed);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setCircle(this.playerRadius, 0, 0);
+    
+    console.log('Player 初始化完成');
+    console.log('可用武器:', this.availableWeapons);
+    console.log('初始武器索引:', this.currentWeaponIndex);
+    console.log('初始武器类型:', this.currentWeaponType);
+    console.log('初始武器配置:', this.getCurrentWeaponConfig());
   }
 
   private createPlayerTexture(): void {
@@ -235,6 +241,7 @@ export class Player extends Phaser.Physics.Arcade.Image {
   public switchToNextWeapon(): WeaponConfig {
     this.currentWeaponIndex = (this.currentWeaponIndex + 1) % this.availableWeapons.length;
     this.currentWeaponType = this.availableWeapons[this.currentWeaponIndex];
+    console.log(`切换到下一个武器: 索引 ${this.currentWeaponIndex}, 类型 ${this.currentWeaponType}`);
     this.showWeaponSwitchEffect();
     return this.getCurrentWeaponConfig();
   }
@@ -242,6 +249,7 @@ export class Player extends Phaser.Physics.Arcade.Image {
   public switchToPrevWeapon(): WeaponConfig {
     this.currentWeaponIndex = (this.currentWeaponIndex - 1 + this.availableWeapons.length) % this.availableWeapons.length;
     this.currentWeaponType = this.availableWeapons[this.currentWeaponIndex];
+    console.log(`切换到上一个武器: 索引 ${this.currentWeaponIndex}, 类型 ${this.currentWeaponType}`);
     this.showWeaponSwitchEffect();
     return this.getCurrentWeaponConfig();
   }

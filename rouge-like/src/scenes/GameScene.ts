@@ -390,8 +390,11 @@ export class GameScene extends Phaser.Scene {
     const currentWeaponType = this.player.getCurrentWeaponType()
     const currentWeaponConfig = this.player.getCurrentWeaponConfig()
 
+    console.log(`当前武器类型: ${currentWeaponType}, 名称: ${currentWeaponConfig.name}`)
+
     if (currentWeaponType === WeaponType.MINE) {
       // 放置地雷
+      console.log('放置地雷')
       this.placeMine(currentWeaponConfig)
     } else {
       // 发射子弹类武器
@@ -405,6 +408,7 @@ export class GameScene extends Phaser.Scene {
         return
       }
 
+      console.log(`发射子弹, dx: ${dx}, dy: ${dy}, 速度: ${currentWeaponConfig.speed}`)
       this.fireBullets(dx, dy, currentWeaponConfig)
     }
 
@@ -450,7 +454,8 @@ export class GameScene extends Phaser.Scene {
       config.type,
       config.pierceCount || 0,
       config.damageDropoff || 0,
-      config.range || Infinity
+      config.range || Infinity,
+      config.speed
     )
     this.playerBullets.add(bullet)
   }
