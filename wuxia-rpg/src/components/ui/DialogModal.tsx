@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useGameSelector, useGameDispatch } from '../../contexts/GameContext';
 import type { DialogOption, GameState } from '../../types';
 import { getDialog } from '../../data/dialogs';
@@ -17,8 +17,57 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
   
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(dialog?.startNodeId || null);
   const [dialogHistory, setDialogHistory] = useState<string[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [displayedText, setDisplayedText] = useState('');
+  
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const currentNode = currentNodeId ? dialog?.nodes.find(n => n.id === currentNodeId) : null;
+  
+  const startTyping = useCallback((text: string) => {
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+    
+    setIsTyping(true);
+    setDisplayedText('');
+    
+    let index = 0;
+    
+    typingIntervalRef.current = setInterval(() => {
+      if (index < text.length) {
+        setDisplayedText(text.slice(0, index + 1));
+        index++;
+      } else {
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+        }
+        setIsTyping(false);
+      }
+    }, 30);
+  }, []);
+  
+  const skipTyping = useCallback(() => {
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+    if (currentNode) {
+      setDisplayedText(currentNode.text);
+    }
+    setIsTyping(false);
+  }, [currentNode]);
+  
+  useEffect(() => {
+    if (currentNode) {
+      startTyping(currentNode.text);
+    }
+    
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, [currentNode, startTyping]);
   
   const checkCondition = useCallback((option: DialogOption): boolean => {
     if (!option.condition) return true;
@@ -49,6 +98,11 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
   }, [currentNodeId]);
   
   const handleOptionClick = useCallback((option: DialogOption) => {
+    if (isTyping) {
+      skipTyping();
+      return;
+    }
+    
     if (option.action) {
       switch (option.action) {
         case 'give_gold':
@@ -73,7 +127,7 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
     } else if (option.isEnd) {
       onClose();
     }
-  }, [dispatch, handleNodeChange, onClose]);
+  }, [dispatch, handleNodeChange, isTyping, onClose, skipTyping]);
   
   const handleBack = useCallback(() => {
     if (dialogHistory.length > 0) {
@@ -140,15 +194,22 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
         
         <div className="flex-1 overflow-y-auto p-4">
           <div 
-            className="p-4 rounded-lg mb-4"
+            className="p-4 rounded-lg mb-4 cursor-pointer"
             style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)' }}
+            onClick={isTyping ? skipTyping : undefined}
           >
             <p style={{ color: '#1a1a1a', lineHeight: 1.8 }}>
-              {currentNode.text}
+              {displayedText || currentNode.text}
+              {isTyping && <span className="animate-pulse">▋</span>}
             </p>
+            {isTyping && (
+              <p className="text-xs mt-2" style={{ color: '#7a7a7a' }}>
+                点击跳过
+              </p>
+            )}
           </div>
           
-          {availableOptions.length > 0 && (
+          {!isTyping && availableOptions.length > 0 && (
             <div className="space-y-2">
               {availableOptions.map((option, idx) => (
                 <button
@@ -169,7 +230,7 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
             </div>
           )}
           
-          {currentNode.isEnd && (
+          {!isTyping && currentNode.isEnd && (
             <button
               onClick={onClose}
               className="w-full px-4 py-3 rounded-lg mt-4"
