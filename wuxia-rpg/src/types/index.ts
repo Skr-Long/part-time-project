@@ -540,11 +540,23 @@ export interface GameEvent {
   shopItems?: ShopItem[];
 }
 
+// --- Explore Log ---
+export type ExploreLogType = 'explore' | 'combat' | 'event' | 'reward' | 'encounter' | 'info';
+
+export interface ExploreLogEntry {
+  id: string;
+  type: ExploreLogType;
+  message: string;
+  timestamp: number;
+  locationId?: string;
+}
+
 // --- UI State ---
 export interface UIState {
   gamePhase: GamePhase;
   currentLocationId: string | null;
   notifications: string[];
+  exploreLogs: ExploreLogEntry[];
   modals: {
     type: string | null;
     data?: unknown;
@@ -619,6 +631,7 @@ export type GameAction =
   | { type: 'LOSE_ITEM'; payload: { itemId: string; quantity?: number } }
   | { type: 'COMPLETE_EVENT'; payload: { eventId: string } }
   | { type: 'ADD_NOTIFICATION'; payload: { message: string } }
+  | { type: 'ADD_EXPLORE_LOG'; payload: { type: ExploreLogType; message: string; locationId?: string } }
   | { type: 'OPEN_MODAL'; payload: { modalType: string; data?: unknown } }
   | { type: 'CLOSE_MODAL' }
   | { type: 'CHANGE_GAME_PHASE'; payload: { phase: GamePhase } }

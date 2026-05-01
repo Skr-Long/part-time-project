@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useGameSelector, useGameDispatch } from '../hooks/useGame';
 import { DEFAULT_LOCATIONS } from '../hooks/useInitialState';
 import { ENEMIES } from '../data/enemies';
@@ -6,7 +6,31 @@ import { HPBar } from '../components/ui/HPBar';
 import { CurrencyDisplay } from '../components/ui/CurrencyDisplay';
 import { getScaledEnemy } from '../data/enemies';
 import { getEventsByLocation } from '../data/events';
-import type { Location, SubLocation, CharacterInteraction, EventRequirements } from '../types';
+import type { Location, SubLocation, CharacterInteraction, EventRequirements, ExploreLogType } from '../types';
+
+function getLogIcon(type: ExploreLogType): string {
+  switch (type) {
+    case 'explore': return '🔍';
+    case 'combat': return '⚔️';
+    case 'event': return '🎭';
+    case 'reward': return '🎁';
+    case 'encounter': return '👹';
+    case 'info': return '💡';
+    default: return '📋';
+  }
+}
+
+function getLogColor(type: ExploreLogType): string {
+  switch (type) {
+    case 'explore': return '#8b5cf6';
+    case 'combat': return '#dc2626';
+    case 'event': return '#c9a227';
+    case 'reward': return '#16a34a';
+    case 'encounter': return '#f97316';
+    case 'info': return '#3b82f6';
+    default: return '#7a7a7a';
+  }
+}
 
 function getLocationTypeIcon(type: string): string {
   switch (type) {
@@ -61,6 +85,7 @@ export function ExplorationMapScreen() {
   const dispatch = useGameDispatch();
   const currentLocation = useGameSelector(s => s.location);
   const player = useGameSelector(s => s.player);
+  const exploreLogs = useGameSelector(s => s.ui.exploreLogs);
   const [hoveredLocation, setHoveredLocation] = useState<Location | null>(null);
   const [selectedSubLocation, setSelectedSubLocation] = useState<SubLocation | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
@@ -68,8 +93,15 @@ export function ExplorationMapScreen() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   const visitedLocationIds = player.visitedLocations || [];
+
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [exploreLogs]);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -157,6 +189,15 @@ export function ExplorationMapScreen() {
   const handleExplore = () => {
     if (!currentLocation) return;
 
+    dispatch({
+      type: 'ADD_EXPLORE_LOG',
+      payload: {
+        type: 'explore',
+        message: `在「${currentLocation.nameCN}」开始探索...`,
+        locationId: currentLocation.id,
+      },
+    });
+
     const locationEvents = getEventsByLocation(currentLocation.id);
     
     const availableEvents = locationEvents.filter(event => {
@@ -185,12 +226,30 @@ export function ExplorationMapScreen() {
     const eventChance = baseEventChance * (1 + luckBonus);
     
     if (Math.random() * 100 > eventChance) {
-      showNotification('四处查看了一番，没有发现什么特别的...');
+      const msg = '四处查看了一番，没有发现什么特别的...';
+      showNotification(msg);
+      dispatch({
+        type: 'ADD_EXPLORE_LOG',
+        payload: {
+          type: 'info',
+          message: msg,
+          locationId: currentLocation.id,
+        },
+      });
       return;
     }
 
     if (availableEvents.length === 0) {
-      showNotification('此地似乎没有什么特别的事情发生...');
+      const msg = '此地似乎没有什么特别的事情发生...';
+      showNotification(msg);
+      dispatch({
+        type: 'ADD_EXPLORE_LOG',
+        payload: {
+          type: 'info',
+          message: msg,
+          locationId: currentLocation.id,
+        },
+      });
       return;
     }
 
@@ -200,11 +259,27 @@ export function ExplorationMapScreen() {
       const { canAccess, reason } = checkRequirements(selectedEvent.requirements);
       if (!canAccess) {
         showNotification(`无法触发此事件：${reason}`);
+        dispatch({
+          type: 'ADD_EXPLORE_LOG',
+          payload: {
+            type: 'info',
+            message: `尝试触发「${selectedEvent.nameCN}」失败：${reason}`,
+            locationId: currentLocation.id,
+          },
+        });
         return;
       }
     }
 
     dispatch({ type: 'ADD_NOTIFICATION', payload: { message: `🎭 触发事件：${selectedEvent.nameCN}` } });
+    dispatch({
+      type: 'ADD_EXPLORE_LOG',
+      payload: {
+        type: 'event',
+        message: `🎭 触发事件：${selectedEvent.nameCN}`,
+        locationId: currentLocation.id,
+      },
+    });
     
     if (selectedEvent.actions && selectedEvent.actions.length > 0) {
       for (const action of selectedEvent.actions) {
@@ -213,6 +288,14 @@ export function ExplorationMapScreen() {
             if (action.enemyId) {
               const enemy = getScaledEnemy(action.enemyId, player.level);
               dispatch({ type: 'START_COMBAT', payload: { enemy } });
+              dispatch({
+                type: 'ADD_EXPLORE_LOG',
+                payload: {
+                  type: 'combat',
+                  message: `⚔️ 遭遇敌人：${enemy.nameCN}`,
+                  locationId: currentLocation.id,
+                },
+              });
             }
             break;
           case 'modifyAttribute':
@@ -224,22 +307,62 @@ export function ExplorationMapScreen() {
                   value: player.attributes[action.attribute] + action.value 
                 } 
               });
+              const attrName = {
+                strength: '力量',
+                constitution: '体质',
+                agility: '敏捷',
+                luck: '幸运',
+                insight: '悟性',
+                physique: '根骨',
+              }[action.attribute] || action.attribute;
+              dispatch({
+                type: 'ADD_EXPLORE_LOG',
+                payload: {
+                  type: 'reward',
+                  message: `🎁 ${attrName} ${action.value > 0 ? '+' : ''}${action.value}`,
+                  locationId: currentLocation.id,
+                },
+              });
             }
             break;
           case 'learnTechnique':
             if (action.techniqueId && !player.knownTechniques.includes(action.techniqueId)) {
               dispatch({ type: 'LEARN_TECHNIQUE', payload: { techniqueId: action.techniqueId } });
               showNotification(`学会了新武学！`);
+              dispatch({
+                type: 'ADD_EXPLORE_LOG',
+                payload: {
+                  type: 'reward',
+                  message: `📜 学会了新武学！`,
+                  locationId: currentLocation.id,
+                },
+              });
             }
             break;
           case 'gainItem':
             if (action.item) {
               dispatch({ type: 'GAIN_ITEM', payload: { item: action.item } });
+              dispatch({
+                type: 'ADD_EXPLORE_LOG',
+                payload: {
+                  type: 'reward',
+                  message: `🎁 获得物品：${action.item.nameCN}`,
+                  locationId: currentLocation.id,
+                },
+              });
             }
             break;
           case 'gainGold':
             if (action.amount !== undefined) {
               dispatch({ type: 'MODIFY_GOLD', payload: { amount: action.amount } });
+              dispatch({
+                type: 'ADD_EXPLORE_LOG',
+                payload: {
+                  type: 'reward',
+                  message: `💰 获得 ${action.amount} 铜钱`,
+                  locationId: currentLocation.id,
+                },
+              });
             }
             break;
         }
@@ -249,9 +372,25 @@ export function ExplorationMapScreen() {
     if (selectedEvent.rewards) {
       if (selectedEvent.rewards.exp) {
         dispatch({ type: 'ADD_EXP', payload: { amount: selectedEvent.rewards.exp } });
+        dispatch({
+          type: 'ADD_EXPLORE_LOG',
+          payload: {
+            type: 'reward',
+            message: `✨ 获得 ${selectedEvent.rewards.exp} 经验`,
+            locationId: currentLocation.id,
+          },
+        });
       }
       if (selectedEvent.rewards.gold) {
         dispatch({ type: 'MODIFY_GOLD', payload: { amount: selectedEvent.rewards.gold } });
+        dispatch({
+          type: 'ADD_EXPLORE_LOG',
+          payload: {
+            type: 'reward',
+            message: `💰 获得 ${selectedEvent.rewards.gold} 铜钱`,
+            locationId: currentLocation.id,
+          },
+        });
       }
     }
 
@@ -765,44 +904,45 @@ export function ExplorationMapScreen() {
         </div>
       </div>
 
-      <div className="w-2/5 overflow-y-auto flex flex-col">
-        {currentLocation ? (
-          <>
-            <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">{getLocationTypeIcon(currentLocation.type)}</span>
-                <div>
-                  <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>{currentLocation.nameCN}</h2>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded"
-                    style={{
-                      backgroundColor: getLocationTypeColor(currentLocation.type) + '20',
-                      color: getLocationTypeColor(currentLocation.type),
-                    }}
-                  >
-                    {getLocationTypeLabel(currentLocation.type)} · 区域 {currentLocation.zone}
-                  </span>
+      <div className="w-2/5 flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          {currentLocation ? (
+            <>
+              <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-3xl">{getLocationTypeIcon(currentLocation.type)}</span>
+                  <div>
+                    <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>{currentLocation.nameCN}</h2>
+                    <span
+                      className="text-xs px-2 py-0.5 rounded"
+                      style={{
+                        backgroundColor: getLocationTypeColor(currentLocation.type) + '20',
+                        color: getLocationTypeColor(currentLocation.type),
+                      }}
+                    >
+                      {getLocationTypeLabel(currentLocation.type)} · 区域 {currentLocation.zone}
+                    </span>
+                  </div>
                 </div>
+                <p className="text-sm" style={{ color: '#4a4a4a' }}>{currentLocation.descriptionCN}</p>
               </div>
-              <p className="text-sm" style={{ color: '#4a4a4a' }}>{currentLocation.descriptionCN}</p>
-            </div>
 
-            <div className="p-3 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.5)' }}>
-              <HPBar current={player.combatStats.currentHP} max={player.combatStats.maxHP} />
-              <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                <div className="p-2 rounded text-center" style={{ backgroundColor: 'rgba(74, 124, 89, 0.1)' }}>
-                  <div className="text-xs" style={{ color: '#7a7a7a' }}>等级</div>
-                  <div className="font-bold" style={{ color: '#1e40af' }}>Lv.{player.level}</div>
-                </div>
-                <div className="p-2 rounded text-center" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}>
-                  <div className="text-xs" style={{ color: '#7a7a7a' }}>经验</div>
-                  <div className="font-bold text-xs" style={{ color: '#c9a227' }}>{player.exp}/{player.expToNext}</div>
-                </div>
-                <div className="p-2 rounded text-center">
-                  <CurrencyDisplay copper={player.gold} />
+              <div className="p-3 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.5)' }}>
+                <HPBar current={player.combatStats.currentHP} max={player.combatStats.maxHP} />
+                <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                  <div className="p-2 rounded text-center" style={{ backgroundColor: 'rgba(74, 124, 89, 0.1)' }}>
+                    <div className="text-xs" style={{ color: '#7a7a7a' }}>等级</div>
+                    <div className="font-bold" style={{ color: '#1e40af' }}>Lv.{player.level}</div>
+                  </div>
+                  <div className="p-2 rounded text-center" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}>
+                    <div className="text-xs" style={{ color: '#7a7a7a' }}>经验</div>
+                    <div className="font-bold text-xs" style={{ color: '#c9a227' }}>{player.exp}/{player.expToNext}</div>
+                  </div>
+                  <div className="p-2 rounded text-center">
+                    <CurrencyDisplay copper={player.gold} />
+                  </div>
                 </div>
               </div>
-            </div>
 
             {currentLocation.subLocations && currentLocation.subLocations.length > 0 && (
               <div className="p-3 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
@@ -1004,13 +1144,65 @@ export function ExplorationMapScreen() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="h-full flex items-center justify-center">
             <div className="text-center" style={{ color: '#7a7a7a' }}>
               <span className="text-4xl">📍</span>
               <p className="mt-2">选择一个地点开始探索</p>
             </div>
           </div>
         )}
+        </div>
+
+        <div 
+          className="border-t"
+          style={{ 
+            borderColor: 'rgba(122, 122, 122, 0.3)', 
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            height: '180px',
+          }}
+        >
+          <div 
+            className="flex items-center justify-between px-3 py-2 border-b"
+            style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}
+          >
+            <h3 className="text-sm font-bold" style={{ color: '#c9a227' }}>📋 探索日志</h3>
+            <span className="text-xs" style={{ color: '#7a7a7a' }}>{exploreLogs.length} 条</span>
+          </div>
+          <div
+            ref={logContainerRef}
+            className="overflow-y-auto"
+            style={{ height: 'calc(100% - 40px)' }}
+          >
+            {exploreLogs.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm" style={{ color: '#7a7a7a' }}>暂无探索记录</p>
+              </div>
+            ) : (
+              <div className="space-y-1 px-2 py-1">
+                {exploreLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-2 rounded text-xs"
+                    style={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                      borderLeft: '3px solid ' + getLogColor(log.type),
+                    }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-base">{getLogIcon(log.type)}</span>
+                      <div className="flex-1">
+                        <p style={{ color: '#1a1a1a', lineHeight: 1.4 }}>{log.message}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#7a7a7a' }}>
+                          {new Date(log.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

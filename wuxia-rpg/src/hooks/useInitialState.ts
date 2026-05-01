@@ -813,6 +813,7 @@ function createInitialUIState(): UIState {
     gamePhase: 'title',
     currentLocationId: null,
     notifications: [],
+    exploreLogs: [],
     modals: { type: null },
   };
 }

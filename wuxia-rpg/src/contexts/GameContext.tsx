@@ -513,6 +513,23 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case 'ADD_EXPLORE_LOG': {
+      const newLog = {
+        id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: action.payload.type,
+        message: action.payload.message,
+        timestamp: Date.now(),
+        locationId: action.payload.locationId,
+      };
+      return {
+        ...state,
+        ui: { 
+          ...state.ui, 
+          exploreLogs: [...state.ui.exploreLogs, newLog].slice(-50),
+        },
+      };
+    }
+
     case 'OPEN_MODAL': {
       return {
         ...state,
