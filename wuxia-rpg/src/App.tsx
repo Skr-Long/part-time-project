@@ -14,6 +14,8 @@ import SettingsModal from './components/ui/SettingsModal'
 import ShopModal from './components/shop/ShopModal'
 import CraftModal from './components/shop/CraftModal'
 import DialogModal from './components/ui/DialogModal'
+import EventRewardModal from './components/ui/EventRewardModal'
+import type { EventRewardModalData } from './components/ui/EventRewardModal'
 import TitleScreen from './screens/TitleScreen'
 import CharacterCreationScreen from './screens/CharacterCreationScreen'
 import { ExplorationMapScreen } from './screens/ExplorationMapScreen'
@@ -39,6 +41,7 @@ function DialogModalWrapper() {
 function ModalRouter() {
   const modalType = useGameSelector(state => state.ui.modals.type)
   const modalData = useGameSelector(state => state.ui.modals.data)
+  const dispatch = useGameDispatch()
 
   if (modalType === 'character') return <CharacterPanel />
   if (modalType === 'overview') return <OverviewModal />
@@ -56,6 +59,12 @@ function ModalRouter() {
   }
   if (modalType === 'craft') return <CraftModal />
   if (modalType === 'dialog') return <DialogModalWrapper />
+  if (modalType === 'event_reward' && modalData) {
+    return <EventRewardModal 
+      data={modalData as EventRewardModalData}
+      onClose={() => dispatch({ type: 'CLOSE_MODAL' })}
+    />
+  }
   return null
 }
 

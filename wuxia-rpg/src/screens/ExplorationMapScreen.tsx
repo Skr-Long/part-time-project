@@ -7,6 +7,7 @@ import { CurrencyDisplay } from '../components/ui/CurrencyDisplay';
 import { getScaledEnemy } from '../data/enemies';
 import { getEventsByLocation } from '../data/events';
 import type { Location, SubLocation, CharacterInteraction, EventRequirements, ExploreLogType } from '../types';
+import type { EventRewardModalData } from '../components/ui/EventRewardModal';
 
 function getLogIcon(type: ExploreLogType): string {
   switch (type) {
@@ -280,32 +281,43 @@ export function ExplorationMapScreen() {
         locationId: currentLocation.id,
       },
     });
-    
+
+    const rewardData: EventRewardModalData = {
+      eventName: selectedEvent.nameCN,
+      eventDescription: selectedEvent.descriptionCN,
+      exp: undefined,
+      gold: undefined,
+      techniques: [],
+      items: [],
+      attributes: [],
+      hasCombat: false,
+      enemyId: undefined,
+    };
+
+    let hasCombat = false;
+
     if (selectedEvent.actions && selectedEvent.actions.length > 0) {
       for (const action of selectedEvent.actions) {
         switch (action.type) {
           case 'startCombat':
             if (action.enemyId) {
-              const enemy = getScaledEnemy(action.enemyId, player.level);
-              dispatch({ type: 'START_COMBAT', payload: { enemy } });
-              dispatch({
-                type: 'ADD_EXPLORE_LOG',
-                payload: {
-                  type: 'combat',
-                  message: `⚔️ 遭遇敌人：${enemy.nameCN}`,
-                  locationId: currentLocation.id,
-                },
-              });
+              hasCombat = true;
+              rewardData.hasCombat = true;
+              rewardData.enemyId = action.enemyId;
             }
             break;
           case 'modifyAttribute':
             if (action.attribute && action.value !== undefined) {
-              dispatch({ 
-                type: 'UPDATE_ATTRIBUTE', 
-                payload: { 
-                  attribute: action.attribute, 
-                  value: player.attributes[action.attribute] + action.value 
-                } 
+              dispatch({
+                type: 'UPDATE_ATTRIBUTE',
+                payload: {
+                  attribute: action.attribute,
+                  value: player.attributes[action.attribute] + action.value
+                }
+              });
+              rewardData.attributes!.push({
+                attribute: action.attribute,
+                value: action.value,
               });
               const attrName = {
                 strength: '力量',
@@ -328,6 +340,7 @@ export function ExplorationMapScreen() {
           case 'learnTechnique':
             if (action.techniqueId && !player.knownTechniques.includes(action.techniqueId)) {
               dispatch({ type: 'LEARN_TECHNIQUE', payload: { techniqueId: action.techniqueId } });
+              rewardData.techniques!.push(action.techniqueId);
               showNotification(`学会了新武学！`);
               dispatch({
                 type: 'ADD_EXPLORE_LOG',
@@ -342,6 +355,7 @@ export function ExplorationMapScreen() {
           case 'gainItem':
             if (action.item) {
               dispatch({ type: 'GAIN_ITEM', payload: { item: action.item } });
+              rewardData.items!.push(action.item);
               dispatch({
                 type: 'ADD_EXPLORE_LOG',
                 payload: {
@@ -355,6 +369,7 @@ export function ExplorationMapScreen() {
           case 'gainGold':
             if (action.amount !== undefined) {
               dispatch({ type: 'MODIFY_GOLD', payload: { amount: action.amount } });
+              rewardData.gold = (rewardData.gold || 0) + action.amount;
               dispatch({
                 type: 'ADD_EXPLORE_LOG',
                 payload: {
@@ -365,6 +380,12 @@ export function ExplorationMapScreen() {
               });
             }
             break;
+          case 'gainExp':
+            if (action.value !== undefined) {
+              dispatch({ type: 'ADD_EXP', payload: { amount: action.value } });
+              rewardData.exp = (rewardData.exp || 0) + action.value;
+            }
+            break;
         }
       }
     }
@@ -372,6 +393,7 @@ export function ExplorationMapScreen() {
     if (selectedEvent.rewards) {
       if (selectedEvent.rewards.exp) {
         dispatch({ type: 'ADD_EXP', payload: { amount: selectedEvent.rewards.exp } });
+        rewardData.exp = (rewardData.exp || 0) + selectedEvent.rewards.exp;
         dispatch({
           type: 'ADD_EXPLORE_LOG',
           payload: {
@@ -383,6 +405,7 @@ export function ExplorationMapScreen() {
       }
       if (selectedEvent.rewards.gold) {
         dispatch({ type: 'MODIFY_GOLD', payload: { amount: selectedEvent.rewards.gold } });
+        rewardData.gold = (rewardData.gold || 0) + selectedEvent.rewards.gold;
         dispatch({
           type: 'ADD_EXPLORE_LOG',
           payload: {
@@ -392,13 +415,42 @@ export function ExplorationMapScreen() {
           },
         });
       }
+      if (selectedEvent.rewards.items && selectedEvent.rewards.items.length > 0) {
+        for (const item of selectedEvent.rewards.items) {
+          dispatch({ type: 'GAIN_ITEM', payload: { item } });
+          rewardData.items!.push(item);
+          dispatch({
+            type: 'ADD_EXPLORE_LOG',
+            payload: {
+              type: 'reward',
+              message: `🎁 获得物品：${item.nameCN}`,
+              locationId: currentLocation.id,
+            },
+          });
+        }
+      }
     }
 
     if (selectedEvent.isExclusive) {
       dispatch({ type: 'COMPLETE_EVENT', payload: { eventId: selectedEvent.id } });
     }
 
-    showNotification(`✨ ${selectedEvent.descriptionCN}`);
+    const hasAnyReward = rewardData.exp !== undefined || rewardData.gold !== undefined || 
+      (rewardData.techniques && rewardData.techniques.length > 0) ||
+      (rewardData.items && rewardData.items.length > 0) ||
+      (rewardData.attributes && rewardData.attributes.length > 0);
+
+    if (hasAnyReward || hasCombat) {
+      dispatch({
+        type: 'OPEN_MODAL',
+        payload: {
+          modalType: 'event_reward',
+          data: rewardData,
+        },
+      });
+    } else {
+      showNotification(`✨ ${selectedEvent.descriptionCN}`);
+    }
   };
 
   const handleInteraction = (interaction: CharacterInteraction) => {
