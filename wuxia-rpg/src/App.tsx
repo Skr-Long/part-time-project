@@ -19,14 +19,6 @@ import CharacterCreationScreen from './screens/CharacterCreationScreen'
 import { ExplorationMapScreen } from './screens/ExplorationMapScreen'
 import { CombatScreen } from './screens/CombatScreen'
 
-function Header() {
-  return (
-    <header className="bg-[var(--color-ink-black)] text-[var(--color-rice)] py-4 px-6 shadow-lg">
-      <h1 className="text-2xl font-serif">江湖游历</h1>
-    </header>
-  )
-}
-
 function DialogModalWrapper() {
   const dispatch = useGameDispatch()
   const modalData = useGameSelector(state => state.ui.modals.data)
@@ -232,7 +224,6 @@ function AppContent() {
   if (gamePhase === 'combat') {
     return (
       <div className="min-h-screen pb-20">
-        <Header />
         <CombatScreen />
         <ModalRouter />
       </div>
@@ -241,7 +232,6 @@ function AppContent() {
   if (gamePhase === 'victory') {
     return (
       <div className="min-h-screen pb-20">
-        <Header />
         <VictoryScreen />
         <ModalRouter />
       </div>
@@ -253,7 +243,6 @@ function AppContent() {
   if (gamePhase === 'exploration') {
     return (
       <div className="min-h-screen">
-        <Header />
         <ExplorationMapScreen />
         {showActionBar && <ActionBar />}
         <ModalRouter />
@@ -263,7 +252,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen pb-20">
-      <Header />
       <main className="p-6">
         <p className="text-[var(--color-ink-gray)]">游戏内容开发中...</p>
       </main>
