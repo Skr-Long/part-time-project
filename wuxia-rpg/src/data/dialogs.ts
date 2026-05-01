@@ -417,7 +417,6 @@ export const DIALOGS: Record<string, Dialog> = {
       },
     ],
   },
-};
 
   'village-blacksmith-dialog': {
     id: 'village-blacksmith-dialog',

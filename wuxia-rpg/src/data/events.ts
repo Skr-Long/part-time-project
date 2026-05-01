@@ -773,7 +773,7 @@ export const EVENTS: GameEvent[] = [
           message: '老者叹了口气：「自保固然重要，但武学的真意远不止于此。罢了，你既与我武学无缘，我便传你一些防身之术吧。」',
           effects: [
             { type: 'modifyAttribute', attribute: 'strength', value: 1 },
-            { type: 'modifyAttribute', attribute: 'defense', value: 1 },
+            { type: 'modifyAttribute', attribute: 'physique', value: 1 },
           ],
           rewards: { exp: 100 },
         },
