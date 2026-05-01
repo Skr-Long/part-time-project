@@ -54,8 +54,8 @@ function createInitialPlayer(): PlayerState {
       { techniqueId: 'basic-breathing', level: 1, exp: 0, expToNext: 100 },
       { techniqueId: 'iron-palm', level: 1, exp: 0, expToNext: 100 },
     ],
-    visitedLocations: [],
-    exploredLocations: [],
+    visitedLocations: ['village'],
+    exploredLocations: ['village'],
     completedEvents: [],
     monsterBook: [],
   };
@@ -70,7 +70,7 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 1,
     connections: ['forest', 'mountain-path', 'south-road'],
     locationType: 'rest',
-    position: { x: 400, y: 250 },
+    position: { x: 400, y: 260 },
     restCost: 50,
     restHealPercent: 1.0,
     subLocations: [
@@ -164,9 +164,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 1,
     connections: ['village', 'deep-forest', 'poison-valley'],
     locationType: 'encounter',
-    position: { x: 250, y: 200 },
+    position: { x: 260, y: 190 },
     encounterPool: ['wolf', 'wild-boar', 'bandit'],
     encounterChance: 30,
+    requirements: {
+      minLevel: 1,
+    },
   },
   {
     id: 'mountain-path',
@@ -176,9 +179,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 1,
     connections: ['village', 'temple', 'black-wind-mountain'],
     locationType: 'encounter',
-    position: { x: 550, y: 200 },
+    position: { x: 540, y: 190 },
     encounterPool: ['mountain-bandit', 'wild-bear', 'thug'],
     encounterChance: 25,
+    requirements: {
+      minLevel: 1,
+    },
   },
   {
     id: 'south-road',
@@ -188,9 +194,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 1,
     connections: ['village', 'ruined-temple', 'river-crossing'],
     locationType: 'encounter',
-    position: { x: 400, y: 350 },
+    position: { x: 400, y: 360 },
     encounterPool: ['thug', 'debt-collector', 'snake'],
     encounterChance: 25,
+    requirements: {
+      minLevel: 1,
+    },
   },
   {
     id: 'deep-forest',
@@ -200,9 +209,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['forest', 'cave', 'waterfall-cave'],
     locationType: 'encounter',
-    position: { x: 120, y: 180 },
+    position: { x: 160, y: 220 },
     encounterPool: ['wolf', 'shadow-beast', 'giant-wolf', 'snake'],
     encounterChance: 40,
+    requirements: {
+      minLevel: 3,
+    },
   },
   {
     id: 'cave',
@@ -212,9 +224,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['deep-forest'],
     locationType: 'encounter',
-    position: { x: 80, y: 100 },
+    position: { x: 100, y: 160 },
     encounterPool: ['cave-spider', 'shadow-beast', 'pickpocket'],
     encounterChance: 50,
+    requirements: {
+      minLevel: 5,
+    },
     subLocations: [
       {
         id: 'secret-chamber',
@@ -236,9 +251,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['deep-forest'],
     locationType: 'encounter',
-    position: { x: 140, y: 140 },
+    position: { x: 120, y: 120 },
     encounterPool: ['mountain-ape', 'shadow-beast'],
     encounterChance: 35,
+    requirements: {
+      minLevel: 6,
+    },
   },
   {
     id: 'temple',
@@ -248,7 +266,10 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['mountain-path', 'shaolin-route'],
     locationType: 'character',
-    position: { x: 500, y: 100 },
+    position: { x: 480, y: 120 },
+    requirements: {
+      minLevel: 5,
+    },
     character: {
       id: 'monk-master',
       nameCN: '静心大师',
@@ -290,9 +311,13 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['forest', 'evil-valley'],
     locationType: 'encounter',
-    position: { x: 200, y: 100 },
+    position: { x: 180, y: 140 },
     encounterPool: ['snake', 'scorpion-king', 'poison-master'],
     encounterChance: 45,
+    requirements: {
+      minLevel: 6,
+      requiredAttributes: { constitution: 6 },
+    },
   },
   {
     id: 'black-wind-mountain',
@@ -302,9 +327,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['mountain-path', 'bandit-lair'],
     locationType: 'encounter',
-    position: { x: 600, y: 220 },
+    position: { x: 580, y: 200 },
     encounterPool: ['bandit', 'mountain-bandit', 'rogue-disciple', 'evildoer'],
     encounterChance: 40,
+    requirements: {
+      minLevel: 6,
+    },
   },
   {
     id: 'bandit-lair',
@@ -314,9 +342,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 3,
     connections: ['black-wind-mountain'],
     locationType: 'encounter',
-    position: { x: 620, y: 150 },
+    position: { x: 620, y: 160 },
     encounterPool: ['mountain-bandit', 'evildoer', 'assassin'],
     encounterChance: 55,
+    requirements: {
+      minLevel: 8,
+    },
     subLocations: [
       {
         id: 'treasure-room',
@@ -338,9 +369,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['south-road', 'graveyard'],
     locationType: 'encounter',
-    position: { x: 280, y: 400 },
+    position: { x: 280, y: 380 },
     encounterPool: ['thug', 'pickpocket', 'rogue-disciple'],
     encounterChance: 30,
+    requirements: {
+      minLevel: 5,
+    },
     subLocations: [
       {
         id: 'broken-statue',
@@ -372,9 +406,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 2,
     connections: ['south-road', 'river-island', 'city-xiangyang'],
     locationType: 'rest',
-    position: { x: 520, y: 380 },
+    position: { x: 520, y: 370 },
     restCost: 60,
     restHealPercent: 0.8,
+    requirements: {
+      minLevel: 5,
+    },
     subLocations: [
       {
         id: 'ferry-inn',
@@ -398,9 +435,13 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 3,
     connections: ['ruined-temple', 'ancient-tomb'],
     locationType: 'encounter',
-    position: { x: 160, y: 420 },
+    position: { x: 180, y: 420 },
     encounterPool: ['jiangshi', 'evildoer', 'pickpocket'],
     encounterChance: 45,
+    requirements: {
+      minLevel: 8,
+      requiredAttributes: { physique: 6 },
+    },
   },
   {
     id: 'ancient-tomb',
@@ -410,9 +451,13 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 4,
     connections: ['graveyard'],
     locationType: 'encounter',
-    position: { x: 100, y: 380 },
+    position: { x: 140, y: 400 },
     encounterPool: ['jiangshi', 'jiangshi-king', 'blood-sect-disciple'],
     encounterChance: 60,
+    requirements: {
+      minLevel: 12,
+      requiredAttributes: { agility: 8, physique: 8 },
+    },
     subLocations: [
       {
         id: 'jade-chamber',
@@ -444,9 +489,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 3,
     connections: ['poison-valley', 'city-luoyang'],
     locationType: 'encounter',
-    position: { x: 180, y: 50 },
+    position: { x: 220, y: 100 },
     encounterPool: ['evildoer', 'assassin', 'blood-sect-disciple'],
     encounterChance: 50,
+    requirements: {
+      minLevel: 10,
+    },
   },
   {
     id: 'river-island',
@@ -456,9 +504,13 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 3,
     connections: ['river-crossing'],
     locationType: 'encounter',
-    position: { x: 600, y: 460 },
+    position: { x: 580, y: 440 },
     encounterPool: ['flower-thief', 'rogue-disciple', 'assassin'],
     encounterChance: 25,
+    requirements: {
+      minLevel: 8,
+      requiredAttributes: { insight: 8 },
+    },
     subLocations: [
       {
         id: 'peach-garden',
@@ -490,9 +542,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 3,
     connections: ['temple', 'city-shaolin'],
     locationType: 'encounter',
-    position: { x: 560, y: 100 },
+    position: { x: 520, y: 100 },
     encounterPool: ['mountain-bandit', 'mountain-ape', 'rogue-disciple'],
     encounterChance: 30,
+    requirements: {
+      minLevel: 8,
+    },
   },
   {
     id: 'city-xiangyang',
@@ -502,9 +557,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 3,
     connections: ['river-crossing', 'city-luoyang', 'huashan-route'],
     locationType: 'rest',
-    position: { x: 680, y: 300 },
+    position: { x: 660, y: 320 },
     restCost: 100,
     restHealPercent: 1.0,
+    requirements: {
+      minLevel: 8,
+    },
     subLocations: [
       {
         id: 'xiangyang-inn',
@@ -575,9 +633,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 4,
     connections: ['city-xiangyang', 'evil-valley', 'wudang-route'],
     locationType: 'rest',
-    position: { x: 380, y: 60 },
+    position: { x: 340, y: 80 },
     restCost: 150,
     restHealPercent: 1.0,
+    requirements: {
+      minLevel: 12,
+    },
     subLocations: [
       {
         id: 'luoyang-inn',
@@ -616,7 +677,11 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 4,
     connections: ['shaolin-route'],
     locationType: 'character',
-    position: { x: 650, y: 80 },
+    position: { x: 600, y: 80 },
+    requirements: {
+      minLevel: 12,
+      requiredAttributes: { physique: 10 },
+    },
     character: {
       id: 'shaolin-master',
       nameCN: '玄慈方丈',
@@ -658,9 +723,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 4,
     connections: ['city-xiangyang', 'city-huashan'],
     locationType: 'encounter',
-    position: { x: 720, y: 340 },
+    position: { x: 700, y: 340 },
     encounterPool: ['assassin', 'evildoer', 'blood-sect-disciple'],
     encounterChance: 35,
+    requirements: {
+      minLevel: 12,
+    },
   },
   {
     id: 'wudang-route',
@@ -670,9 +738,12 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 4,
     connections: ['city-luoyang', 'city-wudang'],
     locationType: 'encounter',
-    position: { x: 260, y: 30 },
+    position: { x: 300, y: 60 },
     encounterPool: ['demon-cult-elder', 'blood-sect-disciple', 'assassin'],
     encounterChance: 40,
+    requirements: {
+      minLevel: 12,
+    },
   },
   {
     id: 'city-huashan',
@@ -682,7 +753,11 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 4,
     connections: ['huashan-route'],
     locationType: 'character',
-    position: { x: 740, y: 420 },
+    position: { x: 720, y: 380 },
+    requirements: {
+      minLevel: 15,
+      requiredAttributes: { agility: 10 },
+    },
     character: {
       id: 'huashan-master',
       nameCN: '岳掌门',
@@ -701,7 +776,11 @@ const DEFAULT_LOCATIONS: Location[] = [
     zone: 4,
     connections: ['wudang-route'],
     locationType: 'character',
-    position: { x: 180, y: 30 },
+    position: { x: 260, y: 80 },
+    requirements: {
+      minLevel: 15,
+      requiredAttributes: { insight: 12 },
+    },
     character: {
       id: 'wudang-master',
       nameCN: '张真人',

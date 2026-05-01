@@ -5,7 +5,8 @@ import { ENEMIES } from '../data/enemies';
 import { HPBar } from '../components/ui/HPBar';
 import { CurrencyDisplay } from '../components/ui/CurrencyDisplay';
 import { getScaledEnemy } from '../data/enemies';
-import type { Location, SubLocation, CharacterInteraction } from '../types';
+import { getEventsByLocation } from '../data/events';
+import type { Location, SubLocation, CharacterInteraction, GameEvent, EventRequirements } from '../types';
 
 function getLocationTypeIcon(type: string): string {
   switch (type) {
@@ -87,6 +88,12 @@ export function ExplorationMapScreen() {
       return;
     }
 
+    const { canAccess, reason } = checkRequirements(location.requirements);
+    if (!canAccess) {
+      showNotification(`无法前往${location.nameCN}：${reason}`);
+      return;
+    }
+
     if (!isVisited) {
       showNotification(`发现新地点：${location.nameCN}！`);
     } else if (!isAccessible) {
@@ -113,42 +120,146 @@ export function ExplorationMapScreen() {
     dispatch({ type: 'START_COMBAT', payload: { enemy } });
   };
 
+  const checkRequirements = (requirements: EventRequirements | undefined): { canAccess: boolean; reason: string } => {
+    if (!requirements) return { canAccess: true, reason: '' };
+    
+    if (requirements.minLevel && player.level < requirements.minLevel) {
+      return { canAccess: false, reason: `需要等级 ${requirements.minLevel}` };
+    }
+    
+    if (requirements.maxLevel && player.level > requirements.maxLevel) {
+      return { canAccess: false, reason: `等级不能超过 ${requirements.maxLevel}` };
+    }
+    
+    if (requirements.requiredAttributes) {
+      for (const [attr, value] of Object.entries(requirements.requiredAttributes)) {
+        if (player.attributes[attr as keyof typeof player.attributes] < (value as number)) {
+          const attrLabels: Record<string, string> = {
+            insight: '悟性', constitution: '体质', strength: '力量',
+            agility: '敏捷', physique: '根骨', luck: '福缘',
+          };
+          return { canAccess: false, reason: `需要 ${attrLabels[attr] || attr} ${value}` };
+        }
+      }
+    }
+    
+    if (requirements.notCompletedEvents) {
+      for (const eventId of requirements.notCompletedEvents) {
+        if (player.completedEvents.includes(eventId)) {
+          return { canAccess: false, reason: '已完成相关事件' };
+        }
+      }
+    }
+    
+    return { canAccess: true, reason: '' };
+  };
+
   const handleExplore = () => {
     if (!currentLocation) return;
 
-    const encounterPool = currentLocation.encounterPool;
+    const locationEvents = getEventsByLocation(currentLocation.id);
     
-    if (encounterPool && encounterPool.length > 0) {
-      const unencounteredEnemies = encounterPool.filter(enemyId => {
-        const entry = player.monsterBook.find(m => m.enemyId === enemyId);
-        return !entry || !entry.encountered;
-      });
-
-      const chance = (currentLocation.encounterChance || 30) * (1 + (player.attributes.luck + 5) / 50);
-      if (Math.random() * 100 > chance) {
-        showNotification('四处查看了一番，没有发现什么特别的...');
-        return;
+    const availableEvents = locationEvents.filter(event => {
+      if (event.isExclusive && player.completedEvents.includes(event.id)) {
+        return false;
       }
-
-      if (unencounteredEnemies.length > 0) {
-        const enemyId = unencounteredEnemies[Math.floor(Math.random() * unencounteredEnemies.length)];
-        const enemy = getScaledEnemy(enemyId, player.level);
-        dispatch({ type: 'START_COMBAT', payload: { enemy } });
-        return;
+      
+      if (event.prerequisiteEvents) {
+        for (const prereq of event.prerequisiteEvents) {
+          if (!player.completedEvents.includes(prereq)) {
+            return false;
+          }
+        }
       }
+      
+      const { canAccess } = checkRequirements({
+        minLevel: event.triggerCondition.minVisits ? undefined : undefined,
+        ...event,
+      } as EventRequirements);
+      
+      return canAccess;
+    });
 
-      const randomEnemyId = encounterPool[Math.floor(Math.random() * encounterPool.length)];
-      const enemy = getScaledEnemy(randomEnemyId, player.level);
-      dispatch({ type: 'START_COMBAT', payload: { enemy } });
-      return;
-    }
-
-    const eventChance = 20 * (1 + (player.attributes.luck + 5) / 50);
+    const baseEventChance = 30;
+    const luckBonus = (player.attributes.luck + 5) / 50;
+    const eventChance = baseEventChance * (1 + luckBonus);
+    
     if (Math.random() * 100 > eventChance) {
       showNotification('四处查看了一番，没有发现什么特别的...');
       return;
     }
-    showNotification('你发现了一些有趣的东西...（事件/奇遇功能开发中）');
+
+    if (availableEvents.length === 0) {
+      showNotification('此地似乎没有什么特别的事情发生...');
+      return;
+    }
+
+    const selectedEvent = availableEvents[Math.floor(Math.random() * availableEvents.length)];
+    
+    if (selectedEvent.requirements) {
+      const { canAccess, reason } = checkRequirements(selectedEvent.requirements);
+      if (!canAccess) {
+        showNotification(`无法触发此事件：${reason}`);
+        return;
+      }
+    }
+
+    dispatch({ type: 'ADD_NOTIFICATION', payload: { message: `🎭 触发事件：${selectedEvent.nameCN}` } });
+    
+    if (selectedEvent.actions && selectedEvent.actions.length > 0) {
+      for (const action of selectedEvent.actions) {
+        switch (action.type) {
+          case 'startCombat':
+            if (action.enemyId) {
+              const enemy = getScaledEnemy(action.enemyId, player.level);
+              dispatch({ type: 'START_COMBAT', payload: { enemy } });
+            }
+            break;
+          case 'modifyAttribute':
+            if (action.attribute && action.value !== undefined) {
+              dispatch({ 
+                type: 'UPDATE_ATTRIBUTE', 
+                payload: { 
+                  attribute: action.attribute, 
+                  value: player.attributes[action.attribute] + action.value 
+                } 
+              });
+            }
+            break;
+          case 'learnTechnique':
+            if (action.techniqueId && !player.knownTechniques.includes(action.techniqueId)) {
+              dispatch({ type: 'LEARN_TECHNIQUE', payload: { techniqueId: action.techniqueId } });
+              showNotification(`学会了新武学！`);
+            }
+            break;
+          case 'gainItem':
+            if (action.item) {
+              dispatch({ type: 'GAIN_ITEM', payload: { item: action.item } });
+            }
+            break;
+          case 'gainGold':
+            if (action.amount !== undefined) {
+              dispatch({ type: 'MODIFY_GOLD', payload: { amount: action.amount } });
+            }
+            break;
+        }
+      }
+    }
+
+    if (selectedEvent.rewards) {
+      if (selectedEvent.rewards.exp) {
+        dispatch({ type: 'ADD_EXP', payload: { amount: selectedEvent.rewards.exp } });
+      }
+      if (selectedEvent.rewards.gold) {
+        dispatch({ type: 'MODIFY_GOLD', payload: { amount: selectedEvent.rewards.gold } });
+      }
+    }
+
+    if (selectedEvent.isExclusive) {
+      dispatch({ type: 'COMPLETE_EVENT', payload: { eventId: selectedEvent.id } });
+    }
+
+    showNotification(`✨ ${selectedEvent.descriptionCN}`);
   };
 
   const handleInteraction = (interaction: CharacterInteraction) => {
@@ -812,8 +923,7 @@ export function ExplorationMapScreen() {
                           {currentLocation.encounterPool.map(enemyId => {
                             const enemy = ENEMIES[enemyId];
                             const encountered = player.monsterBook.find(m => m.enemyId === enemyId)?.encountered;
-                            
-                            if (!encountered) return null;
+                            const defeated = (player.monsterBook.find(m => m.enemyId === enemyId)?.defeated || 0) > 0;
                             
                             return (
                               <button
@@ -821,12 +931,14 @@ export function ExplorationMapScreen() {
                                 onClick={() => handleDirectCombat(enemyId)}
                                 className="px-3 py-2 rounded-lg transition-all flex items-center gap-1 text-sm"
                                 style={{
-                                  backgroundColor: '#dc2626',
+                                  backgroundColor: defeated ? '#16a34a' : (encountered ? '#dc2626' : '#9ca3af'),
                                   color: '#fff',
+                                  cursor: 'pointer',
                                 }}
                               >
                                 <span>👹</span>
                                 <span>{enemy?.nameCN}</span>
+                                {defeated && <span>✓</span>}
                               </button>
                             );
                           })}
@@ -838,12 +950,12 @@ export function ExplorationMapScreen() {
                       onClick={handleExplore}
                       className="w-full px-4 py-3 rounded-lg transition-colors text-base font-serif flex items-center justify-center gap-2"
                       style={{
-                        backgroundColor: '#1a1a1a',
-                        color: '#f5f0e6',
+                        backgroundColor: '#8b5cf6',
+                        color: '#fff',
                       }}
                     >
                       <span>🔍</span>
-                      <span>探索 (发现新敌人或触发奇遇)</span>
+                      <span>探索 (触发事件或奇遇)</span>
                     </button>
                   </>
                 )}

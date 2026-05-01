@@ -322,6 +322,40 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case 'UNEQUIP_ALL_ITEMS': {
+      const { weapon, armor, accessory } = state.player.equipment;
+      if (!weapon && !armor && !accessory) return state;
+      
+      const newInventory = [...state.player.inventory];
+      const notifications: string[] = [];
+      
+      if (weapon) {
+        newInventory.push(weapon);
+        notifications.push(`卸下了 ${weapon.nameCN}`);
+      }
+      if (armor) {
+        newInventory.push(armor);
+        notifications.push(`卸下了 ${armor.nameCN}`);
+      }
+      if (accessory) {
+        newInventory.push(accessory);
+        notifications.push(`卸下了 ${accessory.nameCN}`);
+      }
+      
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          inventory: newInventory,
+          equipment: { weapon: null, armor: null, accessory: null },
+        },
+        ui: {
+          ...state.ui,
+          notifications: [...state.ui.notifications, ...notifications],
+        },
+      };
+    }
+
     case 'DROP_ITEM': {
       const itemIndex = state.player.inventory.findIndex(i => i.id === action.payload.itemId);
       if (itemIndex === -1) return state;
@@ -606,16 +640,44 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       newInventory = [...newInventory, result.item];
 
+      let newBlacksmith = state.player.professions.blacksmith;
+      let blacksmithNotification = '';
+      
+      if (newBlacksmith) {
+        const expGain = Math.max(10, recipe.requiredBlacksmithLevel * 15);
+        let newExp = newBlacksmith.exp + expGain;
+        let newLevel = newBlacksmith.level;
+        let newExpToNext = newBlacksmith.expToNext;
+        
+        while (newExp >= newExpToNext && newLevel < 20) {
+          newExp -= newExpToNext;
+          newLevel += 1;
+          newExpToNext = Math.floor(newBlacksmith.expToNext * 1.5);
+          blacksmithNotification += `铁匠等级提升至 ${newLevel}！`;
+        }
+        
+        newBlacksmith = {
+          ...newBlacksmith,
+          level: newLevel,
+          exp: newExp,
+          expToNext: newExpToNext,
+        };
+      }
+
       return {
         ...state,
         player: {
           ...state.player,
           gold: state.player.gold - recipe.cost,
           inventory: newInventory,
+          professions: {
+            ...state.player.professions,
+            blacksmith: newBlacksmith,
+          },
         },
         ui: {
           ...state.ui,
-          notifications: [...state.ui.notifications, result.message],
+          notifications: [...state.ui.notifications, result.message, ...(blacksmithNotification ? [blacksmithNotification] : [])],
         },
       };
     }
@@ -682,16 +744,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       const attr = action.payload.attribute;
       const currentValue = state.player.attributes[attr];
-      
-      if (currentValue >= 10) {
-        return {
-          ...state,
-          ui: {
-            ...state.ui,
-            notifications: [...state.ui.notifications, '该属性已达到上限'],
-          },
-        };
-      }
       
       const newAttributes = {
         ...state.player.attributes,

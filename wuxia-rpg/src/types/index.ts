@@ -307,6 +307,7 @@ export interface Location {
   restCost?: number;
   restHealPercent?: number;
   subLocations?: SubLocation[];
+  requirements?: EventRequirements;
 }
 
 // --- Loot Entry ---
@@ -578,6 +579,7 @@ export type GameAction =
   | { type: 'USE_ITEM'; payload: { itemId: string } }
   | { type: 'EQUIP_ITEM'; payload: { itemId: string } }
   | { type: 'UNEQUIP_ITEM'; payload: { slot: keyof EquipmentSlots } }
+  | { type: 'UNEQUIP_ALL_ITEMS' }
   | { type: 'DROP_ITEM'; payload: { itemId: string; quantity?: number } }
   | { type: 'LEARN_TECHNIQUE'; payload: { techniqueId: string } }
   | { type: 'UPDATE_ATTRIBUTE'; payload: { attribute: keyof Attributes; value: number } }

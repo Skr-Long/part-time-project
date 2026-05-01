@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useGameSelector, useGameDispatch } from '../../contexts/GameContext';
 import { DEFAULT_LOCATIONS } from '../../hooks/useInitialState';
 import { ENEMIES } from '../../data/enemies';
+import { SPECIAL_EFFECTS } from '../../data/items';
 
-type TabType = 'progress' | 'map' | 'characters' | 'monsters';
+type TabType = 'progress' | 'map' | 'characters' | 'monsters' | 'crafting';
 
 function getLocationTypeIcon(type: string): string {
   switch (type) {
@@ -90,6 +91,7 @@ export default function OverviewModal() {
     { id: 'map', label: '地图总览', icon: '🗺️' },
     { id: 'characters', label: '人物图鉴', icon: '👥' },
     { id: 'monsters', label: '怪物图鉴', icon: '👹' },
+    { id: 'crafting', label: '锻造指南', icon: '⚒️' },
   ];
 
   const visitedLocationIds = player.visitedLocations || [];
@@ -136,6 +138,34 @@ export default function OverviewModal() {
       unlocked: visitedLocationIds.length >= Math.floor(DEFAULT_LOCATIONS.length / 2),
     },
     {
+      id: 'complete-explorer',
+      nameCN: '踏遍山河',
+      descriptionCN: '探索所有地点',
+      icon: '🌍',
+      unlocked: visitedLocationIds.length >= DEFAULT_LOCATIONS.length,
+    },
+    {
+      id: 'zone-2-explorer',
+      nameCN: '初涉江湖',
+      descriptionCN: '探索2级区域',
+      icon: '🗺️',
+      unlocked: visitedLocationIds.some(id => DEFAULT_LOCATIONS.find(l => l.id === id)?.zone === 2),
+    },
+    {
+      id: 'zone-3-explorer',
+      nameCN: '江湖新秀',
+      descriptionCN: '探索3级区域',
+      icon: '🏔️',
+      unlocked: visitedLocationIds.some(id => DEFAULT_LOCATIONS.find(l => l.id === id)?.zone === 3),
+    },
+    {
+      id: 'zone-4-explorer',
+      nameCN: '武林高手',
+      descriptionCN: '探索4级区域',
+      icon: '⚔️',
+      unlocked: visitedLocationIds.some(id => DEFAULT_LOCATIONS.find(l => l.id === id)?.zone === 4),
+    },
+    {
       id: 'first-enemy',
       nameCN: '初战告捷',
       descriptionCN: '首次遇到敌人',
@@ -157,11 +187,32 @@ export default function OverviewModal() {
       unlocked: defeatedEnemies.length >= 10,
     },
     {
+      id: 'boss-slayer',
+      nameCN: 'BOSS猎人',
+      descriptionCN: '首次击败BOSS',
+      icon: '👹',
+      unlocked: monsterBook.some(m => (m.defeated || 0) > 0 && Object.values(ENEMIES).find(e => e.id === m.enemyId)?.isBoss),
+    },
+    {
+      id: 'multi-boss-slayer',
+      nameCN: 'BOSS终结者',
+      descriptionCN: '击败3种不同的BOSS',
+      icon: '🏆',
+      unlocked: monsterBook.filter(m => (m.defeated || 0) > 0 && Object.values(ENEMIES).find(e => e.id === m.enemyId)?.isBoss).length >= 3,
+    },
+    {
       id: 'socialite',
       nameCN: '社交达人',
       descriptionCN: '遇到3位以上NPC',
       icon: '🤝',
       unlocked: visitedCharacterLocationIds.length >= 3,
+    },
+    {
+      id: 'social-master',
+      nameCN: '江湖人脉',
+      descriptionCN: '遇到所有NPC',
+      icon: '👥',
+      unlocked: visitedCharacterLocationIds.length >= characterLocations.length,
     },
     {
       id: 'level-5',
@@ -176,6 +227,97 @@ export default function OverviewModal() {
       descriptionCN: '达到10级',
       icon: '🌟',
       unlocked: player.level >= 10,
+    },
+    {
+      id: 'level-15',
+      nameCN: '江湖名宿',
+      descriptionCN: '达到15级',
+      icon: '💫',
+      unlocked: player.level >= 15,
+    },
+    {
+      id: 'level-20',
+      nameCN: '武林宗师',
+      descriptionCN: '达到20级',
+      icon: '👑',
+      unlocked: player.level >= 20,
+    },
+    {
+      id: 'first-technique',
+      nameCN: '初窥门径',
+      descriptionCN: '学会1种武学',
+      icon: '📖',
+      unlocked: player.knownTechniques.length >= 2,
+    },
+    {
+      id: 'technique-collector',
+      nameCN: '武学收藏家',
+      descriptionCN: '学会5种武学',
+      icon: '📚',
+      unlocked: player.knownTechniques.length >= 5,
+    },
+    {
+      id: 'technique-master',
+      nameCN: '武学大师',
+      descriptionCN: '学会10种武学',
+      icon: '🎓',
+      unlocked: player.knownTechniques.length >= 10,
+    },
+    {
+      id: 'attribute-15',
+      nameCN: '属性达人',
+      descriptionCN: '任意属性达到15点',
+      icon: '💪',
+      unlocked: Object.values(player.attributes).some(v => v >= 15),
+    },
+    {
+      id: 'attribute-20',
+      nameCN: '属性宗师',
+      descriptionCN: '任意属性达到20点',
+      icon: '🔥',
+      unlocked: Object.values(player.attributes).some(v => v >= 20),
+    },
+    {
+      id: 'blacksmith-1',
+      nameCN: '初入铁匠门',
+      descriptionCN: '成为铁匠',
+      icon: '⚒️',
+      unlocked: player.professions.blacksmith !== null,
+    },
+    {
+      id: 'blacksmith-5',
+      nameCN: '熟练铁匠',
+      descriptionCN: '铁匠等级达到5级',
+      icon: '🔨',
+      unlocked: (player.professions.blacksmith?.level || 0) >= 5,
+    },
+    {
+      id: 'blacksmith-10',
+      nameCN: '铸剑大师',
+      descriptionCN: '铁匠等级达到10级',
+      icon: '⚔️',
+      unlocked: (player.professions.blacksmith?.level || 0) >= 10,
+    },
+    {
+      id: 'first-craft',
+      nameCN: '初试身手',
+      descriptionCN: '首次打造装备',
+      icon: '⚒️',
+      unlocked: (player.professions.blacksmith?.exp || 0) > 0,
+    },
+    {
+      id: 'rich-player',
+      nameCN: '腰缠万贯',
+      descriptionCN: '持有10000铜钱',
+      icon: '💰',
+      unlocked: player.gold >= 10000,
+    },
+    {
+      id: 'very-rich-player',
+      nameCN: '富甲一方',
+      descriptionCN: '持有50000铜钱',
+      icon: '💎',
+      unlocked: player.gold >= 50000,
     },
   ];
 
@@ -660,6 +802,99 @@ export default function OverviewModal() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {activeTab === 'crafting' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <h3 className="font-serif font-bold mb-3" style={{ color: '#1a1a1a' }}>⚒️ 锻造系统介绍</h3>
+                <div className="space-y-2 text-sm" style={{ color: '#4a4a4a' }}>
+                  <p>锻造系统允许玩家在武器铺打造各种装备。通过锻造，玩家可以：</p>
+                  <ul className="list-disc list-inside ml-2 space-y-1">
+                    <li>打造武器、盔甲、饰品等各类装备</li>
+                    <li>提高铁匠等级，解锁更高品质的打造配方</li>
+                    <li>有几率获得带有特殊效果的高品质装备</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <h3 className="font-serif font-bold mb-3" style={{ color: '#1a1a1a' }}>📈 铁匠等级</h3>
+                <div className="space-y-2 text-sm" style={{ color: '#4a4a4a' }}>
+                  <p>每次成功打造装备都会获得铁匠经验。铁匠等级越高：</p>
+                  <ul className="list-disc list-inside ml-2 space-y-1">
+                    <li>可以打造更高等级的装备配方</li>
+                    <li>获得高品质装备的几率越大</li>
+                    <li>每次打造获得的经验越多</li>
+                  </ul>
+                  <div className="mt-3 p-2 rounded" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}>
+                    <p className="text-xs" style={{ color: '#c9a227' }}>💡 提示：每次打造获得的经验与配方所需铁匠等级成正比。</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <h3 className="font-serif font-bold mb-3" style={{ color: '#1a1a1a' }}>🎨 装备品质</h3>
+                <div className="space-y-2 text-sm" style={{ color: '#4a4a4a' }}>
+                  <p>打造装备时会随机产生不同品质：</p>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="p-2 rounded" style={{ backgroundColor: 'rgba(122, 122, 122, 0.1)', border: '1px solid #7a7a7a' }}>
+                      <div className="font-bold" style={{ color: '#7a7a7a' }}>普通 (Common)</div>
+                      <div className="text-xs">无特效，基础属性最低</div>
+                    </div>
+                    <div className="p-2 rounded" style={{ backgroundColor: 'rgba(22, 163, 74, 0.1)', border: '1px solid #16a34a' }}>
+                      <div className="font-bold" style={{ color: '#16a34a' }}>优秀 (Uncommon)</div>
+                      <div className="text-xs">10%几率获得特效</div>
+                    </div>
+                    <div className="p-2 rounded" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', border: '1px solid #2563eb' }}>
+                      <div className="font-bold" style={{ color: '#2563eb' }}>稀有 (Rare)</div>
+                      <div className="text-xs">30%几率获得1个特效</div>
+                    </div>
+                    <div className="p-2 rounded" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', border: '1px solid #8b5cf6' }}>
+                      <div className="font-bold" style={{ color: '#8b5cf6' }}>史诗 (Epic)</div>
+                      <div className="text-xs">60%几率获得1-2个特效</div>
+                    </div>
+                    <div className="p-2 rounded col-span-2" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)', border: '1px solid #c9a227' }}>
+                      <div className="font-bold" style={{ color: '#c9a227' }}>传说 (Legendary)</div>
+                      <div className="text-xs">必定获得2-3个特效，基础属性最高</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <h3 className="font-serif font-bold mb-3" style={{ color: '#1a1a1a' }}>✨ 特殊效果详解</h3>
+                <div className="space-y-3">
+                  {Object.values(SPECIAL_EFFECTS).map(effect => (
+                    <div
+                      key={effect.id}
+                      className="p-3 rounded-lg border"
+                      style={{ backgroundColor: 'rgba(201, 162, 39, 0.05)', borderColor: 'rgba(201, 162, 39, 0.3)', borderWidth: '1px' }}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg" style={{ color: '#c9a227' }}>✨</span>
+                        <span className="font-bold" style={{ color: '#c9a227' }}>{effect.nameCN}</span>
+                        <span
+                          className="text-xs px-2 py-0.5 rounded"
+                          style={{
+                            backgroundColor: effect.type === 'passive' ? 'rgba(37, 99, 235, 0.2)' : 'rgba(220, 38, 38, 0.2)',
+                            color: effect.type === 'passive' ? '#2563eb' : '#dc2626',
+                          }}
+                        >
+                          {effect.type === 'passive' ? '被动' : '战斗触发'}
+                        </span>
+                      </div>
+                      <p className="text-sm" style={{ color: '#4a4a4a' }}>{effect.descriptionCN}</p>
+                      {effect.triggerCondition && (
+                        <p className="text-xs mt-1" style={{ color: '#7a7a7a' }}>
+                          触发时机: {effect.triggerCondition === 'on_attack' ? '攻击时' : '被攻击时'}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -171,6 +171,46 @@ export const ENEMIES: Record<string, Enemy> = {
     maxEnergy: 150,
     expReward: 220, goldReward: { min: 200, max: 400 }, lootTable: []
   },
+  blackWindBoss: {
+    id: 'black-wind-boss', nameCN: '黑风寨主', descriptionCN: '黑风山的大寨主，武功高强，手下山贼无数',
+    level: 8, zone: 3,
+    attributes: { constitution: 9, strength: 10, physique: 7, agility: 5, insight: 4, luck: 3 },
+    maxEnergy: 130,
+    expReward: 180, goldReward: { min: 150, max: 300 }, lootTable: [],
+    isBoss: true
+  },
+  poisonValleyBoss: {
+    id: 'poison-valley-boss', nameCN: '万毒谷主', descriptionCN: '万毒谷的谷主，擅长用毒，杀人于无形',
+    level: 9, zone: 3,
+    attributes: { constitution: 7, strength: 6, physique: 5, agility: 8, insight: 10, luck: 4 },
+    maxEnergy: 125,
+    expReward: 190, goldReward: { min: 180, max: 350 }, lootTable: [],
+    isBoss: true
+  },
+  bloodSectMaster: {
+    id: 'blood-sect-master', nameCN: '血神教主', descriptionCN: '血神教的教主，武功邪门，杀人如麻',
+    level: 12, zone: 4,
+    attributes: { constitution: 10, strength: 11, physique: 9, agility: 8, insight: 7, luck: 5 },
+    maxEnergy: 180,
+    expReward: 280, goldReward: { min: 300, max: 500 }, lootTable: [],
+    isBoss: true
+  },
+  evilValleyLeader: {
+    id: 'evil-valley-leader', nameCN: '恶人谷主', descriptionCN: '恶人谷的谷主，天下恶人之首',
+    level: 11, zone: 4,
+    attributes: { constitution: 10, strength: 10, physique: 8, agility: 9, insight: 8, luck: 5 },
+    maxEnergy: 170,
+    expReward: 250, goldReward: { min: 250, max: 450 }, lootTable: [],
+    isBoss: true
+  },
+  caveMonster: {
+    id: 'cave-monster', nameCN: '洞府妖兽', descriptionCN: '幽冥洞府深处的妖兽，体型巨大',
+    level: 7, zone: 2,
+    attributes: { constitution: 10, strength: 9, physique: 8, agility: 4, insight: 2, luck: 2 },
+    maxEnergy: 120,
+    expReward: 130, goldReward: { min: 80, max: 200 }, lootTable: [],
+    isBoss: true
+  },
 };
 
 export function getScaledEnemy(enemyId: string, playerLevel: number): Enemy {

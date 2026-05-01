@@ -23,7 +23,7 @@ export const ATTRIBUTE_INFO: AttributeInfo[] = [
     label: 'insight',
     labelCN: '悟性',
     min: 1,
-    max: 10,
+    max: 999,
     description: '影响内功上限和战斗后技能经验获取',
     effects: [
       {
@@ -45,7 +45,7 @@ export const ATTRIBUTE_INFO: AttributeInfo[] = [
     label: 'constitution',
     labelCN: '体质',
     min: 1,
-    max: 10,
+    max: 999,
     description: '影响最大生命值',
     effects: [
       {
@@ -61,7 +61,7 @@ export const ATTRIBUTE_INFO: AttributeInfo[] = [
     label: 'strength',
     labelCN: '力量',
     min: 1,
-    max: 10,
+    max: 999,
     description: '影响攻击力',
     effects: [
       {
@@ -77,7 +77,7 @@ export const ATTRIBUTE_INFO: AttributeInfo[] = [
     label: 'agility',
     labelCN: '敏捷',
     min: 1,
-    max: 10,
+    max: 999,
     description: '影响战斗速度',
     effects: [
       {
@@ -93,7 +93,7 @@ export const ATTRIBUTE_INFO: AttributeInfo[] = [
     label: 'physique',
     labelCN: '根骨',
     min: 1,
-    max: 10,
+    max: 999,
     description: '影响防御力、技能熟练度提升速度和悟性增益',
     effects: [
       {
@@ -121,7 +121,7 @@ export const ATTRIBUTE_INFO: AttributeInfo[] = [
     label: 'luck',
     labelCN: '幸运',
     min: -5,
-    max: 10,
+    max: 999,
     description: '影响暴击率和随机事件触发概率',
     effects: [
       {

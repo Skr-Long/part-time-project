@@ -10,6 +10,12 @@ export default function EquipmentModal() {
     dispatch({ type: 'CLOSE_MODAL' });
   };
 
+  const handleUnequipAll = () => {
+    dispatch({ type: 'UNEQUIP_ALL_ITEMS' });
+  };
+
+  const hasAnyEquipment = equipment.weapon !== null || equipment.armor !== null || equipment.accessory !== null;
+
   const totalAttack = attributes.strength + (equipment.weapon?.effects.attackBonus || 0);
   const totalDefense = attributes.physique + (equipment.armor?.effects.defenseBonus || 0);
   const speedBonus = attributes.agility + (equipment.accessory?.effects.speedBonus || 0);
@@ -46,6 +52,21 @@ export default function EquipmentModal() {
           <EquipmentSlot slot="weapon" item={equipment.weapon} />
           <EquipmentSlot slot="armor" item={equipment.armor} />
           <EquipmentSlot slot="accessory" item={equipment.accessory} />
+          
+          {hasAnyEquipment && (
+            <button
+              onClick={handleUnequipAll}
+              className="w-full px-4 py-2 text-sm rounded-lg border transition-colors"
+              style={{
+                backgroundColor: '#fee2e2',
+                color: '#991b1b',
+                borderColor: '#fecaca',
+                cursor: 'pointer',
+              }}
+            >
+              一键卸下全部装备
+            </button>
+          )}
         </div>
 
         {/* Stat Bonuses */}

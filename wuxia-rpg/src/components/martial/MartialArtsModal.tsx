@@ -46,6 +46,7 @@ interface MartialArtCardProps {
   isLocked: boolean;
   lockedReason: string;
   onLearn: (art: MartialArt) => void;
+  techniqueLevel: number;
 }
 
 function MartialArtCard({
@@ -54,9 +55,12 @@ function MartialArtCard({
   canLearn,
   isLocked,
   lockedReason,
-  onLearn
+  onLearn,
+  techniqueLevel
 }: MartialArtCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const displayLevel = isKnown && techniqueLevel > 0 ? techniqueLevel : art.level;
 
   const getEffectDisplay = (effect: MartialArt['effects'][0]): string => {
     const attrNames: Record<string, string> = {
@@ -136,7 +140,7 @@ function MartialArtCard({
               </span>
             </div>
             <div className="flex items-center gap-4 mt-1 text-xs" style={{ color: '#7a7a7a' }}>
-              <span>等级 {art.level}</span>
+              <span>等级 {displayLevel}{isKnown && techniqueLevel > art.level && <span style={{ color: '#4a7c59' }}> (+{techniqueLevel - art.level})</span>}</span>
               <span>悟性 {art.insightRequired}</span>
               <span>成功率 {art.learningChanceBase}%</span>
             </div>
@@ -194,19 +198,32 @@ function MartialArtCard({
                 <div>
                   <h4 className="text-sm font-medium mb-1" style={{ color: '#8b5cf6' }}>被动效果</h4>
                   <div className="flex flex-wrap gap-2">
-                    {art.passiveEffects.map((effect, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs px-2 py-1 rounded"
-                        style={{
-                          backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                          color: '#8b5cf6',
-                          border: '1px solid rgba(139, 92, 246, 0.3)',
-                        }}
-                      >
-                        {effect.description}
-                      </span>
-                    ))}
+                    {art.passiveEffects.map((effect, idx) => {
+                      const levelBonus = isKnown && techniqueLevel > art.level 
+                        ? Math.floor(effect.value * (techniqueLevel - art.level) * 0.1)
+                        : 0;
+                      const actualValue = effect.value + levelBonus;
+                      const bonusText = levelBonus > 0 ? ` (基础+${levelBonus})` : '';
+                      
+                      let displayText = effect.description;
+                      if (isKnown && levelBonus > 0) {
+                        displayText = effect.description.replace(`+${effect.value}`, `+${actualValue}`);
+                      }
+                      
+                      return (
+                        <span
+                          key={idx}
+                          className="text-xs px-2 py-1 rounded"
+                          style={{
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            color: '#8b5cf6',
+                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                          }}
+                        >
+                          {displayText}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -474,6 +491,7 @@ export default function MartialArtsModal() {
               const isAvailable = availableArts.some(a => a.id === art.id);
               const canLearn = !isKnown && isAvailable;
               const isLocked = !isKnown && !isAvailable;
+              const techniqueLevel = player.techniqueLevels.find(tl => tl.techniqueId === art.id)?.level || 0;
 
               return (
                 <MartialArtCard
@@ -484,6 +502,7 @@ export default function MartialArtsModal() {
                   isLocked={isLocked}
                   lockedReason={getLockedReason(art)}
                   onLearn={handleLearn}
+                  techniqueLevel={techniqueLevel}
                 />
               );
             })
