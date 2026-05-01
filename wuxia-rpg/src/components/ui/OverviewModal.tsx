@@ -3,7 +3,7 @@ import { useGameSelector, useGameDispatch } from '../../contexts/GameContext';
 import { DEFAULT_LOCATIONS } from '../../hooks/useInitialState';
 import { ENEMIES } from '../../data/enemies';
 
-type TabType = 'map' | 'characters' | 'monsters';
+type TabType = 'progress' | 'map' | 'characters' | 'monsters';
 
 function getLocationTypeIcon(type: string): string {
   switch (type) {
@@ -38,9 +38,41 @@ function getLocationTypeColor(type: string): string {
   }
 }
 
+function ProgressBar({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
+  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between text-sm mb-1">
+        <span style={{ color: '#4a4a4a' }}>{label}</span>
+        <span style={{ color: color, fontWeight: 'bold' }}>{value}/{max}</span>
+      </div>
+      <div 
+        className="h-3 rounded-full overflow-hidden" 
+        style={{ backgroundColor: 'rgba(122, 122, 122, 0.2)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${percentage}%`,
+            backgroundColor: color,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface Achievement {
+  id: string;
+  nameCN: string;
+  descriptionCN: string;
+  icon: string;
+  unlocked: boolean;
+}
+
 export default function OverviewModal() {
   const dispatch = useGameDispatch();
-  const [activeTab, setActiveTab] = useState<TabType>('map');
+  const [activeTab, setActiveTab] = useState<TabType>('progress');
   const player = useGameSelector(state => state.player);
   const currentLocation = useGameSelector(state => state.location);
   const monsterBook = useGameSelector(state => state.player.monsterBook);
@@ -54,19 +86,100 @@ export default function OverviewModal() {
   };
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
+    { id: 'progress', label: '进度总览', icon: '📊' },
     { id: 'map', label: '地图总览', icon: '🗺️' },
     { id: 'characters', label: '人物图鉴', icon: '👥' },
     { id: 'monsters', label: '怪物图鉴', icon: '👹' },
   ];
 
   const visitedLocationIds = player.visitedLocations || [];
-
   const characterLocations = DEFAULT_LOCATIONS.filter(loc => loc.character);
+  const visitedCharacterLocationIds = characterLocations.filter(loc => 
+    visitedLocationIds.includes(loc.id) || loc.id === 'village'
+  );
 
   const allEnemies = Object.values(ENEMIES);
+  const encounteredEnemies = monsterBook.filter(m => m.encountered);
+  const defeatedEnemies = monsterBook.filter(m => (m.defeated || 0) > 0);
+
   const getEncounteredInfo = (enemyId: string) => {
     return monsterBook.find(m => m.enemyId === enemyId) || null;
   };
+
+  const achievements: Achievement[] = [
+    {
+      id: 'first-step',
+      nameCN: '初入江湖',
+      descriptionCN: '探索第一个地点',
+      icon: '🌟',
+      unlocked: visitedLocationIds.length > 0,
+    },
+    {
+      id: 'explorer',
+      nameCN: '探索者',
+      descriptionCN: '探索5个以上地点',
+      icon: '🗺️',
+      unlocked: visitedLocationIds.length >= 5,
+    },
+    {
+      id: 'wanderer',
+      nameCN: '游历四方',
+      descriptionCN: '探索10个以上地点',
+      icon: '🏃',
+      unlocked: visitedLocationIds.length >= 10,
+    },
+    {
+      id: 'master-explorer',
+      nameCN: '江湖百晓生',
+      descriptionCN: '探索一半以上的地点',
+      icon: '📚',
+      unlocked: visitedLocationIds.length >= Math.floor(DEFAULT_LOCATIONS.length / 2),
+    },
+    {
+      id: 'first-enemy',
+      nameCN: '初战告捷',
+      descriptionCN: '首次遇到敌人',
+      icon: '⚔️',
+      unlocked: encounteredEnemies.length > 0,
+    },
+    {
+      id: 'hunter',
+      nameCN: '猎人',
+      descriptionCN: '击败5种不同敌人',
+      icon: '🏹',
+      unlocked: defeatedEnemies.length >= 5,
+    },
+    {
+      id: 'slayer',
+      nameCN: '猎杀者',
+      descriptionCN: '击败10种不同敌人',
+      icon: '💀',
+      unlocked: defeatedEnemies.length >= 10,
+    },
+    {
+      id: 'socialite',
+      nameCN: '社交达人',
+      descriptionCN: '遇到3位以上NPC',
+      icon: '🤝',
+      unlocked: visitedCharacterLocationIds.length >= 3,
+    },
+    {
+      id: 'level-5',
+      nameCN: '初露锋芒',
+      descriptionCN: '达到5级',
+      icon: '⭐',
+      unlocked: player.level >= 5,
+    },
+    {
+      id: 'level-10',
+      nameCN: '武林新秀',
+      descriptionCN: '达到10级',
+      icon: '🌟',
+      unlocked: player.level >= 10,
+    },
+  ];
+
+  const unlockedAchievements = achievements.filter(a => a.unlocked);
 
   return (
     <div
@@ -97,12 +210,12 @@ export default function OverviewModal() {
           </button>
         </div>
 
-        <div className="flex border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
+        <div className="flex border-b flex-wrap" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 py-3 px-4 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 min-w-[80px] py-3 px-2 transition-colors flex items-center justify-center gap-1"
               style={{
                 backgroundColor: activeTab === tab.id ? 'rgba(201, 162, 39, 0.2)' : 'transparent',
                 borderBottom: activeTab === tab.id ? '2px solid #c9a227' : '2px solid transparent',
@@ -111,21 +224,145 @@ export default function OverviewModal() {
               }}
             >
               <span>{tab.icon}</span>
-              <span className="text-sm">{tab.label}</span>
+              <span className="text-xs">{tab.label}</span>
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === 'progress' && (
+            <div className="space-y-6">
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <h3 className="font-serif font-bold mb-4" style={{ color: '#1a1a1a' }}>📊 游戏进度</h3>
+                <ProgressBar 
+                  value={visitedLocationIds.length} 
+                  max={DEFAULT_LOCATIONS.length} 
+                  color="#4a7c59" 
+                  label="地图探索" 
+                />
+                <ProgressBar 
+                  value={encounteredEnemies.length} 
+                  max={allEnemies.length} 
+                  color="#dc2626" 
+                  label="怪物发现" 
+                />
+                <ProgressBar 
+                  value={defeatedEnemies.length} 
+                  max={allEnemies.length} 
+                  color="#2563eb" 
+                  label="怪物击败" 
+                />
+                <ProgressBar 
+                  value={visitedCharacterLocationIds.length} 
+                  max={characterLocations.length} 
+                  color="#c9a227" 
+                  label="人物相遇" 
+                />
+              </div>
+
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-serif font-bold" style={{ color: '#1a1a1a' }}>🏆 荣誉成就</h3>
+                  <span className="text-sm" style={{ color: '#c9a227', fontWeight: 'bold' }}>
+                    {unlockedAchievements.length}/{achievements.length} 已解锁
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  {achievements.map(achievement => (
+                    <div
+                      key={achievement.id}
+                      className="p-3 rounded-lg border flex items-center gap-3 transition-all"
+                      style={{
+                        backgroundColor: achievement.unlocked ? 'rgba(201, 162, 39, 0.05)' : 'rgba(122, 122, 122, 0.05)',
+                        borderColor: achievement.unlocked ? 'rgba(201, 162, 39, 0.3)' : 'rgba(122, 122, 122, 0.2)',
+                        borderWidth: '1px',
+                        opacity: achievement.unlocked ? 1 : 0.6,
+                      }}
+                    >
+                      <span 
+                        className="text-2xl" 
+                        style={{ filter: achievement.unlocked ? 'none' : 'grayscale(100%)' }}
+                      >
+                        {achievement.icon}
+                      </span>
+                      <div className="flex-1">
+                        <div 
+                          className="font-bold text-sm"
+                          style={{ color: achievement.unlocked ? '#c9a227' : '#9ca3af' }}
+                        >
+                          {achievement.nameCN}
+                        </div>
+                        <div className="text-xs" style={{ color: '#7a7a7a' }}>
+                          {achievement.descriptionCN}
+                        </div>
+                      </div>
+                      {achievement.unlocked && (
+                        <span className="text-lg" style={{ color: '#16a34a' }}>✓</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <h3 className="font-serif font-bold mb-3" style={{ color: '#1a1a1a' }}>📈 角色统计</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded text-center" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)' }}>
+                    <div className="text-xs" style={{ color: '#7a7a7a' }}>等级</div>
+                    <div className="font-bold text-lg" style={{ color: '#2563eb' }}>Lv.{player.level}</div>
+                  </div>
+                  <div className="p-3 rounded text-center" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}>
+                    <div className="text-xs" style={{ color: '#7a7a7a' }}>经验</div>
+                    <div className="font-bold text-sm" style={{ color: '#c9a227' }}>{player.exp}/{player.expToNext}</div>
+                  </div>
+                  <div className="p-3 rounded text-center" style={{ backgroundColor: 'rgba(22, 163, 74, 0.1)' }}>
+                    <div className="text-xs" style={{ color: '#7a7a7a' }}>总战斗次数</div>
+                    <div className="font-bold text-lg" style={{ color: '#16a34a' }}>
+                      {monsterBook.reduce((sum, m) => sum + (m.defeated || 0), 0)}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded text-center" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)' }}>
+                    <div className="text-xs" style={{ color: '#7a7a7a' }}>学会技能数</div>
+                    <div className="font-bold text-lg" style={{ color: '#8b5cf6' }}>
+                      {player.knownTechniques.length}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                <h3 className="font-serif font-bold mb-3" style={{ color: '#1a1a1a' }}>⚔️ 六围属性</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: 'insight', label: '悟性', color: '#8b5cf6' },
+                    { key: 'constitution', label: '体质', color: '#dc2626' },
+                    { key: 'strength', label: '力量', color: '#f59e0b' },
+                    { key: 'agility', label: '敏捷', color: '#16a34a' },
+                    { key: 'physique', label: '根骨', color: '#2563eb' },
+                    { key: 'luck', label: '幸运', color: '#c9a227' },
+                  ].map(attr => (
+                    <div key={attr.key} className="p-2 rounded flex items-center justify-between" style={{ backgroundColor: `${attr.color}10` }}>
+                      <span className="text-xs" style={{ color: '#7a7a7a' }}>{attr.label}</span>
+                      <span className="font-bold text-sm" style={{ color: attr.color }}>
+                        {player.attributes[attr.key as keyof typeof player.attributes]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'map' && (
             <div className="space-y-4">
               <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(74, 124, 89, 0.1)' }}>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: '#7a7a7a' }}>已探索</span>
-                  <span className="font-bold" style={{ color: '#4a7c59' }}>
-                    {visitedLocationIds.length} / {DEFAULT_LOCATIONS.length}
-                  </span>
-                </div>
+                <ProgressBar 
+                  value={visitedLocationIds.length} 
+                  max={DEFAULT_LOCATIONS.length} 
+                  color="#4a7c59" 
+                  label="地图探索进度" 
+                />
               </div>
 
               <div className="space-y-3">
@@ -232,6 +469,15 @@ export default function OverviewModal() {
 
           {activeTab === 'characters' && (
             <div className="space-y-3">
+              <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}>
+                <ProgressBar 
+                  value={visitedCharacterLocationIds.length} 
+                  max={characterLocations.length} 
+                  color="#c9a227" 
+                  label="人物相遇进度" 
+                />
+              </div>
+
               {characterLocations.length === 0 ? (
                 <div className="text-center py-8" style={{ color: '#7a7a7a' }}>
                   <span className="text-4xl">👤</span>
@@ -296,12 +542,18 @@ export default function OverviewModal() {
           {activeTab === 'monsters' && (
             <div className="space-y-3">
               <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(139, 0, 0, 0.1)' }}>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: '#7a7a7a' }}>已发现</span>
-                  <span className="font-bold" style={{ color: '#8b0000' }}>
-                    {monsterBook.filter(m => m.encountered).length} / {allEnemies.length}
-                  </span>
-                </div>
+                <ProgressBar 
+                  value={encounteredEnemies.length} 
+                  max={allEnemies.length} 
+                  color="#dc2626" 
+                  label="怪物发现进度" 
+                />
+                <ProgressBar 
+                  value={defeatedEnemies.length} 
+                  max={allEnemies.length} 
+                  color="#16a34a" 
+                  label="怪物击败进度" 
+                />
               </div>
 
               {allEnemies.map(enemy => {
@@ -338,6 +590,14 @@ export default function OverviewModal() {
                               >
                                 等级 {info?.levelSeen || enemy.level}
                               </span>
+                              {enemy.isBoss && (
+                                <span
+                                  className="ml-2 text-xs px-2 py-0.5 rounded"
+                                  style={{ backgroundColor: '#dc2626', color: '#fff' }}
+                                >
+                                  BOSS
+                                </span>
+                              )}
                             </div>
                           </div>
                           {isDefeated && (

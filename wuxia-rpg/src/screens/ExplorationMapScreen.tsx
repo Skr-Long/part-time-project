@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useGameSelector, useGameDispatch } from '../hooks/useGame';
 import { DEFAULT_LOCATIONS } from '../hooks/useInitialState';
 import { ENEMIES } from '../data/enemies';
@@ -53,6 +53,9 @@ function getInteractionIcon(type: string): string {
   }
 }
 
+const MAP_VIEWBOX_WIDTH = 800;
+const MAP_VIEWBOX_HEIGHT = 500;
+
 export function ExplorationMapScreen() {
   const dispatch = useGameDispatch();
   const currentLocation = useGameSelector(s => s.location);
@@ -60,6 +63,10 @@ export function ExplorationMapScreen() {
   const [hoveredLocation, setHoveredLocation] = useState<Location | null>(null);
   const [selectedSubLocation, setSelectedSubLocation] = useState<SubLocation | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
   const visitedLocationIds = player.visitedLocations || [];
 
@@ -74,13 +81,16 @@ export function ExplorationMapScreen() {
     const isVisited = visitedLocationIds.includes(location.id) || location.id === 'village';
     
     if (isCurrent) return;
-    if (!isAccessible) {
-      showNotification('此地点不连通，无法直接前往');
+    
+    if (!isAccessible && !isVisited) {
+      showNotification('此地点未探索，无法直接前往');
       return;
     }
 
     if (!isVisited) {
       showNotification(`发现新地点：${location.nameCN}！`);
+    } else if (!isAccessible) {
+      showNotification(`传送至：${location.nameCN}`);
     }
 
     dispatch({ type: 'MOVE_TO_LOCATION', payload: { locationId: location.id } });
@@ -114,17 +124,23 @@ export function ExplorationMapScreen() {
         return !entry || !entry.encountered;
       });
 
+      const chance = (currentLocation.encounterChance || 30) * (1 + (player.attributes.luck + 5) / 50);
+      if (Math.random() * 100 > chance) {
+        showNotification('四处查看了一番，没有发现什么特别的...');
+        return;
+      }
+
       if (unencounteredEnemies.length > 0) {
-        const chance = (currentLocation.encounterChance || 30) * (1 + (player.attributes.luck + 5) / 50);
-        if (Math.random() * 100 > chance) {
-          showNotification('四处查看了一番，没有发现什么特别的...');
-          return;
-        }
         const enemyId = unencounteredEnemies[Math.floor(Math.random() * unencounteredEnemies.length)];
         const enemy = getScaledEnemy(enemyId, player.level);
         dispatch({ type: 'START_COMBAT', payload: { enemy } });
         return;
       }
+
+      const randomEnemyId = encounterPool[Math.floor(Math.random() * encounterPool.length)];
+      const enemy = getScaledEnemy(randomEnemyId, player.level);
+      dispatch({ type: 'START_COMBAT', payload: { enemy } });
+      return;
     }
 
     const eventChance = 20 * (1 + (player.attributes.luck + 5) / 50);
@@ -192,6 +208,40 @@ export function ExplorationMapScreen() {
     }
   };
 
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.max(0.5, Math.min(2, prev + delta)));
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0) {
+      setIsPanning(true);
+      setLastMousePos({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPanning) {
+      const dx = e.clientX - lastMousePos.x;
+      const dy = e.clientY - lastMousePos.y;
+      setPan(prev => ({
+        x: prev.x + dx,
+        y: prev.y + dy
+      }));
+      setLastMousePos({ x: e.clientX, y: e.clientY });
+    }
+  }, [isPanning, lastMousePos]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#f5f0e6' }}>
       {notification && (
@@ -209,20 +259,59 @@ export function ExplorationMapScreen() {
       )}
 
       <div 
-        className="w-1/2 border-r overflow-hidden flex flex-col"
+        className="w-3/5 border-r overflow-hidden flex flex-col"
         style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(26, 26, 26, 0.02)' }}
       >
-        <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
-          <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>🗺️ 江湖地图</h2>
-          <p className="text-sm mt-1" style={{ color: '#7a7a7a' }}>点击已探索的地点移动，悬停查看详情</p>
+        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
+          <div>
+            <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>🗺️ 江湖地图</h2>
+            <p className="text-sm mt-1" style={{ color: '#7a7a7a' }}>点击已探索地点可传送，鼠标拖拽平移，滚轮缩放</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setZoom(prev => Math.min(2, prev + 0.2))}
+              className="w-8 h-8 rounded flex items-center justify-center text-lg"
+              style={{ backgroundColor: 'rgba(26, 26, 26, 0.1)', color: '#4a4a4a' }}
+            >
+              +
+            </button>
+            <span className="text-sm" style={{ color: '#7a7a7a' }}>{Math.round(zoom * 100)}%</span>
+            <button
+              onClick={() => setZoom(prev => Math.max(0.5, prev - 0.2))}
+              className="w-8 h-8 rounded flex items-center justify-center text-lg"
+              style={{ backgroundColor: 'rgba(26, 26, 26, 0.1)', color: '#4a4a4a' }}
+            >
+              −
+            </button>
+            <button
+              onClick={resetView}
+              className="ml-2 px-3 py-1 rounded text-sm"
+              style={{ backgroundColor: 'rgba(201, 162, 39, 0.2)', color: '#c9a227' }}
+            >
+              重置
+            </button>
+          </div>
         </div>
         
-        <div className="flex-1 relative overflow-hidden flex items-center justify-center p-4">
+        <div 
+          className="flex-1 relative overflow-hidden flex items-center justify-center p-4 cursor-grab"
+          style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
           <svg 
-            width="500" 
-            height="300" 
-            viewBox="0 0 500 300"
+            width="100%" 
+            height="100%" 
+            viewBox={`0 0 ${MAP_VIEWBOX_WIDTH} ${MAP_VIEWBOX_HEIGHT}`}
             className="max-w-full max-h-full"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: isPanning ? 'none' : 'transform 0.1s ease-out'
+            }}
           >
             <defs>
               <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -299,17 +388,17 @@ export function ExplorationMapScreen() {
               const isHovered = hoveredLocation?.id === location.id;
               const color = getLocationTypeColor(location.type);
               
-              const radius = isCurrent ? 32 : (isHovered ? 30 : 26);
-              const canClick = isConnected && !isCurrent;
+              const radius = isCurrent ? 28 : (isHovered ? 26 : 22);
+              const canClick = (isConnected || isVisited) && !isCurrent;
               
               return (
                 <g 
                   key={location.id}
                   transform={`translate(${location.position.x}, ${location.position.y})`}
-                  style={{ cursor: canClick ? 'pointer' : 'default' }}
-                  onMouseEnter={() => setHoveredLocation(location)}
-                  onMouseLeave={() => setHoveredLocation(null)}
-                  onClick={() => handleLocationClick(location)}
+                  style={{ cursor: canClick ? 'pointer' : (isPanning ? 'grabbing' : 'grab') }}
+                  onMouseEnter={(e) => { e.stopPropagation(); setHoveredLocation(location); }}
+                  onMouseLeave={(e) => { e.stopPropagation(); setHoveredLocation(null); }}
+                  onClick={(e) => { e.stopPropagation(); handleLocationClick(location); }}
                 >
                   {isCurrent && (
                     <>
@@ -357,14 +446,14 @@ export function ExplorationMapScreen() {
                       <circle
                         r={radius}
                         fill={isCurrent ? '#fef3c7' : '#fff'}
-                        stroke={isCurrent ? '#c9a227' : (isConnected ? color : '#9ca3af')}
+                        stroke={isCurrent ? '#c9a227' : (isConnected ? color : (isVisited ? color : '#9ca3af'))}
                         strokeWidth={isCurrent ? 4 : 2}
                         filter="url(#shadow)"
                       />
                       <text
                         textAnchor="middle"
                         dominantBaseline="central"
-                        fontSize="22"
+                        fontSize="18"
                         y="-2"
                       >
                         {getLocationTypeIcon(location.type)}
@@ -372,8 +461,8 @@ export function ExplorationMapScreen() {
                       <text
                         textAnchor="middle"
                         dominantBaseline="central"
-                        y={radius + 16}
-                        fontSize="12"
+                        y={radius + 14}
+                        fontSize="11"
                         fontWeight={isCurrent ? 'bold' : 'normal'}
                         fill={isCurrent ? '#92400e' : '#4a4a4a'}
                       >
@@ -383,23 +472,34 @@ export function ExplorationMapScreen() {
                         <text
                           textAnchor="middle"
                           dominantBaseline="central"
-                          y={radius + 30}
-                          fontSize="10"
+                          y={radius + 26}
+                          fontSize="8"
                           fill="#c9a227"
                           fontWeight="bold"
                         >
                           当前位置
                         </text>
                       )}
-                      {canClick && (
+                      {canClick && !isConnected && (
                         <text
                           textAnchor="middle"
                           dominantBaseline="central"
-                          y={radius + 30}
-                          fontSize="9"
+                          y={radius + 26}
+                          fontSize="8"
+                          fill="#8b5cf6"
+                        >
+                          已探索
+                        </text>
+                      )}
+                      {canClick && isConnected && (
+                        <text
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          y={radius + 26}
+                          fontSize="8"
                           fill="#4a7c59"
                         >
-                          点击前往
+                          相邻
                         </text>
                       )}
                     </>
@@ -415,7 +515,7 @@ export function ExplorationMapScreen() {
                       <text
                         textAnchor="middle"
                         dominantBaseline="central"
-                        fontSize="18"
+                        fontSize="16"
                         opacity="0.5"
                       >
                         ❓
@@ -423,8 +523,8 @@ export function ExplorationMapScreen() {
                       <text
                         textAnchor="middle"
                         dominantBaseline="central"
-                        y={radius + 16}
-                        fontSize="10"
+                        y={radius + 14}
+                        fontSize="9"
                         fill="#9ca3af"
                       >
                         未探索
@@ -440,12 +540,13 @@ export function ExplorationMapScreen() {
             <div
               className="absolute z-10 p-3 rounded-lg shadow-xl border"
               style={{
-                left: Math.min(Math.max(hoveredLocation.position.x + 40, 10), 350),
-                top: Math.min(Math.max(hoveredLocation.position.y - 60, 10), 200),
+                left: '50%',
+                top: '10%',
+                transform: 'translateX(-50%)',
                 backgroundColor: 'rgba(255, 255, 255, 0.98)',
                 borderColor: getLocationTypeColor(hoveredLocation.type),
                 borderWidth: '2px',
-                minWidth: '200px',
+                minWidth: '250px',
               }}
             >
               <div className="flex items-center gap-2 mb-2">
@@ -499,9 +600,14 @@ export function ExplorationMapScreen() {
                     </div>
                   )}
                   
-                  {currentLocation?.connections.includes(hoveredLocation.id) && currentLocation.id !== hoveredLocation.id && (
+                  {currentLocation?.id !== hoveredLocation.id && (
                     <div className="mt-2 pt-2 border-t" style={{ borderColor: 'rgba(122, 122, 122, 0.2)' }}>
-                      <span className="text-xs font-bold" style={{ color: '#4a7c59' }}>💡 点击可前往此地点</span>
+                      {currentLocation?.connections.includes(hoveredLocation.id) && (
+                        <span className="text-xs font-bold" style={{ color: '#4a7c59' }}>💡 此地点与当前位置相邻</span>
+                      )}
+                      {!currentLocation?.connections.includes(hoveredLocation.id) && visitedLocationIds.includes(hoveredLocation.id) && (
+                        <span className="text-xs font-bold" style={{ color: '#8b5cf6' }}>💡 点击可传送至此地点</span>
+                      )}
                     </div>
                   )}
                 </>
@@ -534,14 +640,14 @@ export function ExplorationMapScreen() {
         </div>
       </div>
 
-      <div className="w-1/2 overflow-y-auto flex flex-col">
+      <div className="w-2/5 overflow-y-auto flex flex-col">
         {currentLocation ? (
           <>
-            <div className="p-6 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+            <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-4xl">{getLocationTypeIcon(currentLocation.type)}</span>
+                <span className="text-3xl">{getLocationTypeIcon(currentLocation.type)}</span>
                 <div>
-                  <h2 className="text-2xl font-serif" style={{ color: '#1a1a1a' }}>{currentLocation.nameCN}</h2>
+                  <h2 className="text-xl font-serif" style={{ color: '#1a1a1a' }}>{currentLocation.nameCN}</h2>
                   <span
                     className="text-xs px-2 py-0.5 rounded"
                     style={{
@@ -553,19 +659,19 @@ export function ExplorationMapScreen() {
                   </span>
                 </div>
               </div>
-              <p style={{ color: '#4a4a4a' }}>{currentLocation.descriptionCN}</p>
+              <p className="text-sm" style={{ color: '#4a4a4a' }}>{currentLocation.descriptionCN}</p>
             </div>
 
-            <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.5)' }}>
+            <div className="p-3 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(255, 255, 255, 0.5)' }}>
               <HPBar current={player.combatStats.currentHP} max={player.combatStats.maxHP} />
-              <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+              <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                 <div className="p-2 rounded text-center" style={{ backgroundColor: 'rgba(74, 124, 89, 0.1)' }}>
                   <div className="text-xs" style={{ color: '#7a7a7a' }}>等级</div>
                   <div className="font-bold" style={{ color: '#1e40af' }}>Lv.{player.level}</div>
                 </div>
                 <div className="p-2 rounded text-center" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}>
                   <div className="text-xs" style={{ color: '#7a7a7a' }}>经验</div>
-                  <div className="font-bold" style={{ color: '#c9a227' }}>{player.exp}/{player.expToNext}</div>
+                  <div className="font-bold text-xs" style={{ color: '#c9a227' }}>{player.exp}/{player.expToNext}</div>
                 </div>
                 <div className="p-2 rounded text-center">
                   <CurrencyDisplay copper={player.gold} />
@@ -574,14 +680,14 @@ export function ExplorationMapScreen() {
             </div>
 
             {currentLocation.subLocations && currentLocation.subLocations.length > 0 && (
-              <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
-                <h3 className="text-sm font-bold mb-3" style={{ color: '#7a7a7a' }}>📍 可前往的地点</h3>
+              <div className="p-3 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
+                <h3 className="text-sm font-bold mb-2" style={{ color: '#7a7a7a' }}>📍 可前往的地点</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {currentLocation.subLocations.map(subLoc => (
                     <button
                       key={subLoc.id}
                       onClick={() => setSelectedSubLocation(selectedSubLocation?.id === subLoc.id ? null : subLoc)}
-                      className="p-3 rounded-lg transition-all text-left"
+                      className="p-2 rounded-lg transition-all text-left"
                       style={{
                         borderWidth: '2px',
                         borderStyle: 'solid',
@@ -590,9 +696,9 @@ export function ExplorationMapScreen() {
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl">{subLoc.icon}</span>
+                        <span className="text-xl">{subLoc.icon}</span>
                         <div>
-                          <div className="font-bold" style={{ color: '#1a1a1a' }}>{subLoc.nameCN}</div>
+                          <div className="font-bold text-sm" style={{ color: '#1a1a1a' }}>{subLoc.nameCN}</div>
                           <div className="text-xs" style={{ color: '#7a7a7a' }}>{subLoc.descriptionCN}</div>
                         </div>
                       </div>
@@ -601,11 +707,11 @@ export function ExplorationMapScreen() {
                 </div>
 
                 {selectedSubLocation && (
-                  <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'rgba(201, 162, 39, 0.05)', border: '1px solid rgba(201, 162, 39, 0.3)' }}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-2xl">{selectedSubLocation.icon}</span>
+                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: 'rgba(201, 162, 39, 0.05)', border: '1px solid rgba(201, 162, 39, 0.3)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">{selectedSubLocation.icon}</span>
                       <div>
-                        <h4 className="font-bold" style={{ color: '#c9a227' }}>{selectedSubLocation.nameCN}</h4>
+                        <h4 className="font-bold text-sm" style={{ color: '#c9a227' }}>{selectedSubLocation.nameCN}</h4>
                         <p className="text-xs" style={{ color: '#7a7a7a' }}>{selectedSubLocation.descriptionCN}</p>
                       </div>
                     </div>
@@ -617,7 +723,7 @@ export function ExplorationMapScreen() {
                             key={idx}
                             onClick={() => handleInteraction(interaction)}
                             disabled={interaction.disabled}
-                            className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                            className="px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm"
                             style={{
                               backgroundColor: interaction.disabled ? '#e5e7eb' : '#1a1a1a',
                               color: interaction.disabled ? '#9ca3af' : '#f5f0e6',
@@ -636,21 +742,21 @@ export function ExplorationMapScreen() {
             )}
 
             {currentLocation.character && (
-              <div className="p-4 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
-                <h3 className="text-sm font-bold mb-3" style={{ color: '#7a7a7a' }}>👤 此地点的人物</h3>
+              <div className="p-3 border-b" style={{ borderColor: 'rgba(122, 122, 122, 0.3)' }}>
+                <h3 className="text-sm font-bold mb-2" style={{ color: '#7a7a7a' }}>👤 此地点的人物</h3>
                 <div 
-                  className="p-4 rounded-lg border"
+                  className="p-3 rounded-lg border"
                   style={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.8)', 
                     borderColor: 'rgba(201, 162, 39, 0.5)',
                     borderWidth: '2px',
                   }}
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-4xl">🧙</span>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-3xl">🧙</span>
                     <div>
-                      <p className="font-bold text-lg" style={{ color: '#c9a227' }}>{currentLocation.character.nameCN}</p>
-                      <p className="text-sm" style={{ color: '#4a4a4a' }}>{currentLocation.character.descriptionCN}</p>
+                      <p className="font-bold" style={{ color: '#c9a227' }}>{currentLocation.character.nameCN}</p>
+                      <p className="text-xs" style={{ color: '#4a4a4a' }}>{currentLocation.character.descriptionCN}</p>
                     </div>
                   </div>
                   
@@ -661,7 +767,7 @@ export function ExplorationMapScreen() {
                           key={idx}
                           onClick={() => handleInteraction(interaction)}
                           disabled={interaction.disabled}
-                          className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                          className="px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm"
                           style={{
                             backgroundColor: interaction.disabled ? '#e5e7eb' : '#c9a227',
                             color: interaction.disabled ? '#9ca3af' : '#fff',
@@ -678,13 +784,13 @@ export function ExplorationMapScreen() {
               </div>
             )}
 
-            <div className="p-4 flex-1">
+            <div className="p-3 flex-1">
               <div className="flex flex-col gap-3">
                 {currentLocation.locationType === 'rest' && (
                   <button
                     onClick={handleRest}
                     disabled={player.gold < (currentLocation.restCost || 50)}
-                    className="w-full px-6 py-4 rounded-lg transition-colors text-lg font-serif flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 rounded-lg transition-colors text-base font-serif flex items-center justify-center gap-2"
                     style={{
                       backgroundColor: player.gold < (currentLocation.restCost || 50) ? '#9ca3af' : '#4a7c59',
                       color: '#fff',
@@ -699,31 +805,38 @@ export function ExplorationMapScreen() {
                 
                 {currentLocation.locationType === 'encounter' && (
                   <>
-                    {currentLocation.encounterPool && currentLocation.encounterPool.map(enemyId => {
-                      const enemy = ENEMIES[enemyId];
-                      const encountered = player.monsterBook.find(m => m.enemyId === enemyId)?.encountered;
-                      
-                      if (!encountered) return null;
-                      
-                      return (
-                        <button
-                          key={enemyId}
-                          onClick={() => handleDirectCombat(enemyId)}
-                          className="w-full px-6 py-4 rounded-lg transition-colors text-lg font-serif flex items-center justify-center gap-2"
-                          style={{
-                            backgroundColor: '#dc2626',
-                            color: '#fff',
-                          }}
-                        >
-                          <span>⚔️</span>
-                          <span>战斗: {enemy?.nameCN}</span>
-                        </button>
-                      );
-                    })}
+                    {currentLocation.encounterPool && currentLocation.encounterPool.length > 0 && (
+                      <div className="p-3 rounded-lg border" style={{ backgroundColor: 'rgba(220, 38, 38, 0.03)', borderColor: 'rgba(220, 38, 38, 0.3)' }}>
+                        <h4 className="text-sm font-bold mb-2" style={{ color: '#dc2626' }}>⚔️ 可挑战的敌人</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {currentLocation.encounterPool.map(enemyId => {
+                            const enemy = ENEMIES[enemyId];
+                            const encountered = player.monsterBook.find(m => m.enemyId === enemyId)?.encountered;
+                            
+                            if (!encountered) return null;
+                            
+                            return (
+                              <button
+                                key={enemyId}
+                                onClick={() => handleDirectCombat(enemyId)}
+                                className="px-3 py-2 rounded-lg transition-all flex items-center gap-1 text-sm"
+                                style={{
+                                  backgroundColor: '#dc2626',
+                                  color: '#fff',
+                                }}
+                              >
+                                <span>👹</span>
+                                <span>{enemy?.nameCN}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <button
                       onClick={handleExplore}
-                      className="w-full px-6 py-4 rounded-lg transition-colors text-lg font-serif flex items-center justify-center gap-2"
+                      className="w-full px-4 py-3 rounded-lg transition-colors text-base font-serif flex items-center justify-center gap-2"
                       style={{
                         backgroundColor: '#1a1a1a',
                         color: '#f5f0e6',
@@ -736,22 +849,25 @@ export function ExplorationMapScreen() {
                 )}
 
                 {currentLocation.encounterPool && currentLocation.encounterPool.length > 0 && (
-                  <div className="p-4 rounded-lg border" style={{ backgroundColor: 'rgba(220, 38, 38, 0.05)', borderColor: 'rgba(220, 38, 38, 0.2)' }}>
-                    <h4 className="text-sm font-bold mb-2" style={{ color: '#dc2626' }}>👹 此区域可能遇到的敌人:</h4>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="p-3 rounded-lg border" style={{ backgroundColor: 'rgba(220, 38, 38, 0.05)', borderColor: 'rgba(220, 38, 38, 0.2)' }}>
+                    <h4 className="text-xs font-bold mb-2" style={{ color: '#dc2626' }}>📖 图鉴进度</h4>
+                    <div className="flex flex-wrap gap-1">
                       {currentLocation.encounterPool.map(enemyId => {
                         const enemy = ENEMIES[enemyId];
-                        const encountered = player.monsterBook.find(m => m.enemyId === enemyId)?.encountered;
+                        const entry = player.monsterBook.find(m => m.enemyId === enemyId);
+                        const encountered = entry?.encountered;
+                        const defeated = (entry?.defeated || 0) > 0;
                         return (
                           <span
                             key={enemyId}
-                            className="text-sm px-3 py-1 rounded"
+                            className="text-xs px-2 py-1 rounded"
                             style={{
-                              backgroundColor: encountered ? 'rgba(220, 38, 38, 0.1)' : 'rgba(122, 122, 122, 0.1)',
-                              color: encountered ? '#dc2626' : '#9ca3af',
+                              backgroundColor: encountered ? (defeated ? 'rgba(22, 163, 74, 0.1)' : 'rgba(220, 38, 38, 0.1)') : 'rgba(122, 122, 122, 0.1)',
+                              color: encountered ? (defeated ? '#16a34a' : '#dc2626') : '#9ca3af',
                             }}
                           >
                             {encountered ? enemy?.nameCN : '???'}
+                            {defeated && ' ✓'}
                           </span>
                         );
                       })}
