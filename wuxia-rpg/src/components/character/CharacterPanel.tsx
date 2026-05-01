@@ -316,8 +316,7 @@ export default function CharacterPanel() {
   const renderAttributeRow = (attr: keyof Attributes) => {
     const breakdown = effectiveAttributes[attr];
     const hasFreePoints = player.freeAttributePoints > 0;
-    const isMaxed = player.attributes[attr] >= 10;
-    const canAllocate = hasFreePoints && !isMaxed;
+    const canAllocate = hasFreePoints;
 
     return (
       <div 
@@ -354,7 +353,7 @@ export default function CharacterPanel() {
                 color: canAllocate ? '#4a7c59' : '#9ca3af',
                 cursor: canAllocate ? 'pointer' : 'not-allowed',
               }}
-              title={isMaxed ? '该属性已达到上限' : '分配属性点'}
+              title="分配属性点"
             >
               +
             </button>

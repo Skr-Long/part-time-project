@@ -26,6 +26,12 @@ interface CraftResultModalProps {
     success: boolean;
     item?: EquipmentItem;
     message: string;
+    expGain?: number;
+    oldLevel?: number;
+    newLevel?: number;
+    oldExp?: number;
+    newExp?: number;
+    expToNext?: number;
   };
   onClose: () => void;
 }
@@ -56,6 +62,42 @@ function CraftResultModal({ result, onClose }: CraftResultModalProps) {
             {result.success ? '打造成功！' : '打造失败'}
           </h3>
           <p className="mb-4" style={{ color: '#4a4a4a' }}>{result.message}</p>
+          
+          {result.success && result.expGain !== undefined && (
+            <div 
+              className="p-3 rounded-lg mb-4"
+              style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}
+            >
+              <div className="text-sm font-bold mb-2" style={{ color: '#c9a227' }}>
+                ⚒️ 铁匠经验 +{result.expGain}
+              </div>
+              {result.newLevel !== undefined && result.oldLevel !== undefined && result.newLevel > result.oldLevel && (
+                <div className="text-sm font-bold" style={{ color: '#16a34a' }}>
+                  🎉 铁匠等级提升至 {result.newLevel} 级！
+                </div>
+              )}
+              {result.expToNext !== undefined && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs mb-1" style={{ color: '#7a7a7a' }}>
+                    <span>经验进度</span>
+                    <span>{result.newExp || 0}/{result.expToNext}</span>
+                  </div>
+                  <div 
+                    className="w-full h-2 rounded-full overflow-hidden"
+                    style={{ backgroundColor: 'rgba(122, 122, 122, 0.2)' }}
+                  >
+                    <div 
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ 
+                        width: `${Math.min(((result.newExp || 0) / result.expToNext) * 100, 100)}%`,
+                        backgroundColor: '#c9a227',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           
           {item && (
             <div 
@@ -264,12 +306,42 @@ export default function CraftModal() {
   const player = useGameSelector(state => state.player);
   const playerLevel = player.level;
   const blacksmithLevel = player.professions.blacksmith?.level || 1;
+  const blacksmithExp = player.professions.blacksmith?.exp || 0;
+  const blacksmithExpToNext = player.professions.blacksmith?.expToNext || 100;
   const playerGold = player.gold;
   const inventory = player.inventory;
   
   const [activeTab, setActiveTab] = useState<'all' | 'weapon' | 'armor' | 'accessory'>('all');
-  const [craftResult, setCraftResult] = useState<{ success: boolean; item?: EquipmentItem; message: string } | null>(null);
+  const [craftResult, setCraftResult] = useState<{
+    success: boolean;
+    item?: EquipmentItem;
+    message: string;
+    expGain?: number;
+    oldLevel?: number;
+    newLevel?: number;
+    oldExp?: number;
+    newExp?: number;
+    expToNext?: number;
+  } | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+
+  const getRarityChances = (level: number) => {
+    const baseChance = Math.min(level * 3, 30);
+    const legendary = 5 + baseChance * 0.5;
+    const epic = 15 + baseChance - legendary;
+    const rare = 35 + baseChance * 1.5 - (15 + baseChance);
+    const uncommon = 60 + baseChance - (35 + baseChance * 1.5);
+    const common = 100 - (60 + baseChance);
+    return {
+      legendary: Math.round(legendary * 10) / 10,
+      epic: Math.round(epic * 10) / 10,
+      rare: Math.round(rare * 10) / 10,
+      uncommon: Math.round(uncommon * 10) / 10,
+      common: Math.round(common * 10) / 10,
+    };
+  };
+
+  const rarityChances = getRarityChances(blacksmithLevel);
 
   const handleClose = () => {
     dispatch({ type: 'CLOSE_MODAL' });
@@ -278,6 +350,32 @@ export default function CraftModal() {
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 2000);
+  };
+
+  const calculateBlacksmithExp = (recipe: CraftRecipe) => {
+    const oldLevel = blacksmithLevel;
+    const oldExp = blacksmithExp;
+    const oldExpToNext = blacksmithExpToNext;
+    const expGain = Math.max(10, recipe.requiredBlacksmithLevel * 15);
+    
+    let newExp = oldExp + expGain;
+    let newLevel = oldLevel;
+    let newExpToNext = oldExpToNext;
+    
+    while (newExp >= newExpToNext && newLevel < 20) {
+      newExp -= newExpToNext;
+      newLevel += 1;
+      newExpToNext = Math.floor(newExpToNext * 1.5);
+    }
+    
+    return {
+      expGain,
+      oldLevel,
+      newLevel,
+      oldExp,
+      newExp,
+      expToNext: newExpToNext,
+    };
   };
 
   const handleCraft = (recipe: CraftRecipe) => {
@@ -289,6 +387,7 @@ export default function CraftModal() {
     }
 
     const result = executeCraft(recipe.id, playerLevel, blacksmithLevel);
+    const expInfo = player.professions.blacksmith ? calculateBlacksmithExp(recipe) : null;
     
     if (result.success && result.item) {
       dispatch({ type: 'CRAFT_ITEM', payload: { recipeId: recipe.id } });
@@ -298,6 +397,7 @@ export default function CraftModal() {
       success: result.success,
       item: result.item,
       message: result.message,
+      ...expInfo,
     });
   };
 
@@ -400,6 +500,53 @@ export default function CraftModal() {
 
           {/* Footer */}
           <div className="p-4 border-t" style={{ borderColor: 'rgba(122, 122, 122, 0.3)', backgroundColor: 'rgba(26, 26, 26, 0.05)' }}>
+            {player.professions.blacksmith && (
+              <div className="mb-3">
+                <div className="flex justify-between text-xs mb-1">
+                  <span style={{ color: '#7a7a7a' }}>铁匠等级 {blacksmithLevel}</span>
+                  <span style={{ color: '#c9a227' }}>{blacksmithExp}/{blacksmithExpToNext} 经验</span>
+                </div>
+                <div 
+                  className="w-full h-2 rounded-full overflow-hidden"
+                  style={{ backgroundColor: 'rgba(122, 122, 122, 0.2)' }}
+                >
+                  <div 
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${Math.min((blacksmithExp / blacksmithExpToNext) * 100, 100)}%`,
+                      backgroundColor: '#c9a227',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(201, 162, 39, 0.05)' }}>
+              <div className="text-xs font-bold mb-2" style={{ color: '#c9a227' }}>当前铁匠等级 {blacksmithLevel} 的品质概率：</div>
+              <div className="grid grid-cols-5 gap-1 text-center text-xs">
+                <div>
+                  <div className="font-bold" style={{ color: '#c9a227' }}>传说</div>
+                  <div style={{ color: '#7a7a7a' }}>{rarityChances.legendary}%</div>
+                </div>
+                <div>
+                  <div className="font-bold" style={{ color: '#8b5cf6' }}>史诗</div>
+                  <div style={{ color: '#7a7a7a' }}>{rarityChances.epic}%</div>
+                </div>
+                <div>
+                  <div className="font-bold" style={{ color: '#2563eb' }}>稀有</div>
+                  <div style={{ color: '#7a7a7a' }}>{rarityChances.rare}%</div>
+                </div>
+                <div>
+                  <div className="font-bold" style={{ color: '#16a34a' }}>优秀</div>
+                  <div style={{ color: '#7a7a7a' }}>{rarityChances.uncommon}%</div>
+                </div>
+                <div>
+                  <div className="font-bold" style={{ color: '#7a7a7a' }}>普通</div>
+                  <div style={{ color: '#7a7a7a' }}>{rarityChances.common}%</div>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-sm" style={{ color: '#4a4a4a' }}>持有金币</span>
               <span className="text-lg font-serif" style={{ color: '#c9a227' }}>{formatGold(playerGold)}</span>

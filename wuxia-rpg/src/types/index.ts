@@ -237,12 +237,39 @@ export interface PlayerState {
 // --- Character Interaction ---
 export type CharacterInteractionType = 'talk' | 'shop' | 'quest' | 'train' | 'heal' | 'rest' | 'craft';
 
+export interface DialogOption {
+  text: string;
+  nextNodeId?: string;
+  action?: 'give_gold' | 'give_item' | 'learn_technique' | 'trigger_event';
+  actionData?: unknown;
+  condition?: {
+    type: 'has_gold' | 'has_item' | 'min_level' | 'min_attribute' | 'has_technique';
+    value: number | string;
+  };
+}
+
+export interface DialogNode {
+  id: string;
+  speaker: string;
+  text: string;
+  options?: DialogOption[];
+  isEnd?: boolean;
+}
+
+export interface Dialog {
+  id: string;
+  characterId: string;
+  nodes: DialogNode[];
+  startNodeId: string;
+}
+
 export interface CharacterInteraction {
   type: CharacterInteractionType;
   label: string;
   description?: string;
   disabled?: boolean;
   disabledReason?: string;
+  dialogId?: string;
 }
 
 // --- Character Data ---

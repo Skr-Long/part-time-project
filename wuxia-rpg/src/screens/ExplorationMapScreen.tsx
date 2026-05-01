@@ -263,6 +263,20 @@ export function ExplorationMapScreen() {
   };
 
   const handleInteraction = (interaction: CharacterInteraction) => {
+    if (interaction.dialogId) {
+      dispatch({
+        type: 'OPEN_MODAL',
+        payload: {
+          modalType: 'dialog',
+          data: {
+            dialogId: interaction.dialogId,
+            characterName: currentLocation?.character?.nameCN || 'NPC',
+          },
+        },
+      });
+      return;
+    }
+    
     switch (interaction.type) {
       case 'rest':
         const subLoc = selectedSubLocation;

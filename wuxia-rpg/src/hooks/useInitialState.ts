@@ -275,7 +275,7 @@ const DEFAULT_LOCATIONS: Location[] = [
       nameCN: '静心大师',
       descriptionCN: '一位慈眉善目的老僧，武学修为深不可测。',
       interactions: [
-        { type: 'talk', label: '对话', description: '与静心大师交谈' },
+        { type: 'talk', label: '对话', description: '与静心大师交谈', dialogId: 'monk-master-dialog' },
         { type: 'train', label: '请教武学', description: '向大师请教武学问题' },
         { type: 'quest', label: '接受任务', description: '看看大师有没有任务托付' },
       ],
@@ -687,7 +687,7 @@ const DEFAULT_LOCATIONS: Location[] = [
       nameCN: '玄慈方丈',
       descriptionCN: '少林寺方丈，德高望重，武功深不可测。',
       interactions: [
-        { type: 'talk', label: '对话', description: '与方丈交谈' },
+        { type: 'talk', label: '对话', description: '与方丈交谈', dialogId: 'shaolin-master-dialog' },
         { type: 'train', label: '请教武学', description: '向方丈请教少林武学' },
         { type: 'quest', label: '接受任务', description: '看看寺中有何任务' },
       ],
@@ -763,7 +763,7 @@ const DEFAULT_LOCATIONS: Location[] = [
       nameCN: '岳掌门',
       descriptionCN: '华山派掌门，剑法通神，为人正直。',
       interactions: [
-        { type: 'talk', label: '对话', description: '与掌门交谈' },
+        { type: 'talk', label: '对话', description: '与掌门交谈', dialogId: 'huashan-master-dialog' },
         { type: 'train', label: '请教剑法', description: '请教研习华山剑法' },
       ],
     },
@@ -786,7 +786,7 @@ const DEFAULT_LOCATIONS: Location[] = [
       nameCN: '张真人',
       descriptionCN: '武当派创始人，太极宗师，仙风道骨。',
       interactions: [
-        { type: 'talk', label: '对话', description: '与张真人交谈' },
+        { type: 'talk', label: '对话', description: '与张真人交谈', dialogId: 'wudang-master-dialog' },
         { type: 'train', label: '请教武学', description: '请教武当太极武学' },
       ],
     },

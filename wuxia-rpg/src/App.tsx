@@ -13,6 +13,7 @@ import MonsterBookModal from './components/monster/MonsterBookModal'
 import SettingsModal from './components/ui/SettingsModal'
 import ShopModal from './components/shop/ShopModal'
 import CraftModal from './components/shop/CraftModal'
+import DialogModal from './components/ui/DialogModal'
 import TitleScreen from './screens/TitleScreen'
 import CharacterCreationScreen from './screens/CharacterCreationScreen'
 import { ExplorationMapScreen } from './screens/ExplorationMapScreen'
@@ -23,6 +24,23 @@ function Header() {
     <header className="bg-[var(--color-ink-black)] text-[var(--color-rice)] py-4 px-6 shadow-lg">
       <h1 className="text-2xl font-serif">江湖游历</h1>
     </header>
+  )
+}
+
+function DialogModalWrapper() {
+  const dispatch = useGameDispatch()
+  const modalData = useGameSelector(state => state.ui.modals.data)
+  
+  if (!modalData) return null
+  
+  const data = modalData as { dialogId: string; characterName: string }
+  
+  return (
+    <DialogModal 
+      dialogId={data.dialogId}
+      characterName={data.characterName}
+      onClose={() => dispatch({ type: 'CLOSE_MODAL' })}
+    />
   )
 }
 
@@ -45,6 +63,7 @@ function ModalRouter() {
     />
   }
   if (modalType === 'craft') return <CraftModal />
+  if (modalType === 'dialog') return <DialogModalWrapper />
   return null
 }
 
