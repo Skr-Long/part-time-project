@@ -240,6 +240,7 @@ export type CharacterInteractionType = 'talk' | 'shop' | 'quest' | 'train' | 'he
 export interface DialogOption {
   text: string;
   nextNodeId?: string;
+  isEnd?: boolean;
   action?: 'give_gold' | 'give_item' | 'learn_technique' | 'trigger_event';
   actionData?: unknown;
   condition?: {
@@ -532,6 +533,7 @@ export interface GameEvent {
   prerequisiteEvents?: string[];
   isExclusive: boolean;
   exclusiveWith?: string[];
+  requirements?: EventRequirements;
   actions?: EventAction[];
   rewards?: { exp?: number; gold?: number; items?: InventoryItem[] };
   choices?: EventChoice[];

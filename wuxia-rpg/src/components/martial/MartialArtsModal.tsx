@@ -203,7 +203,6 @@ function MartialArtCard({
                         ? Math.floor(effect.value * (techniqueLevel - art.level) * 0.1)
                         : 0;
                       const actualValue = effect.value + levelBonus;
-                      const bonusText = levelBonus > 0 ? ` (基础+${levelBonus})` : '';
                       
                       let displayText = effect.description;
                       if (isKnown && levelBonus > 0) {

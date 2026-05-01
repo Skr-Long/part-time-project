@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { useGameSelector, useGameDispatch } from '../contexts/GameContext';
-import type { Dialog, DialogNode, DialogOption } from '../types';
-import { getDialog } from '../data/dialogs';
+import { useGameSelector, useGameDispatch } from '../../contexts/GameContext';
+import type { DialogOption, GameState } from '../../types';
+import { getDialog } from '../../data/dialogs';
 
 interface DialogModalProps {
   dialogId: string;
@@ -11,14 +11,12 @@ interface DialogModalProps {
 
 export default function DialogModal({ dialogId, characterName, onClose }: DialogModalProps) {
   const dispatch = useGameDispatch();
-  const player = useGameSelector(state => state.player);
+  const player = useGameSelector((state: GameState) => state.player);
   
   const dialog = getDialog(dialogId);
   
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(dialog?.startNodeId || null);
   const [dialogHistory, setDialogHistory] = useState<string[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [displayedText, setDisplayedText] = useState('');
   
   const currentNode = currentNodeId ? dialog?.nodes.find(n => n.id === currentNodeId) : null;
   
@@ -42,24 +40,6 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
         return true;
     }
   }, [player]);
-  
-  const typeText = useCallback((text: string) => {
-    setIsTyping(true);
-    setDisplayedText('');
-    
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < text.length) {
-        setDisplayedText(text.slice(0, index + 1));
-        index++;
-      } else {
-        clearInterval(interval);
-        setIsTyping(false);
-      }
-    }, 30);
-    
-    return () => clearInterval(interval);
-  }, []);
   
   const handleNodeChange = useCallback((nodeId: string) => {
     if (currentNodeId) {
@@ -164,12 +144,11 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
             style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)' }}
           >
             <p style={{ color: '#1a1a1a', lineHeight: 1.8 }}>
-              {displayedText || currentNode.text}
-              {isTyping && <span className="animate-pulse">▋</span>}
+              {currentNode.text}
             </p>
           </div>
           
-          {!isTyping && availableOptions.length > 0 && (
+          {availableOptions.length > 0 && (
             <div className="space-y-2">
               {availableOptions.map((option, idx) => (
                 <button
@@ -190,10 +169,10 @@ export default function DialogModal({ dialogId, characterName, onClose }: Dialog
             </div>
           )}
           
-          {!isTyping && currentNode.isEnd && (
+          {currentNode.isEnd && (
             <button
               onClick={onClose}
-              className="w-full px-4 py-3 rounded-lg"
+              className="w-full px-4 py-3 rounded-lg mt-4"
               style={{ backgroundColor: '#1a1a1a', color: '#f5f0e6' }}
             >
               结束对话

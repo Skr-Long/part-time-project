@@ -6,7 +6,7 @@ import { HPBar } from '../components/ui/HPBar';
 import { CurrencyDisplay } from '../components/ui/CurrencyDisplay';
 import { getScaledEnemy } from '../data/enemies';
 import { getEventsByLocation } from '../data/events';
-import type { Location, SubLocation, CharacterInteraction, GameEvent, EventRequirements } from '../types';
+import type { Location, SubLocation, CharacterInteraction, EventRequirements } from '../types';
 
 function getLocationTypeIcon(type: string): string {
   switch (type) {
