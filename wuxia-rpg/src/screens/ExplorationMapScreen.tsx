@@ -507,7 +507,7 @@ export function ExplorationMapScreen() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#f5f0e6' }}>
+    <div className="flex h-screen overflow-hidden pb-20" style={{ backgroundColor: '#f5f0e6' }}>
       {notification && (
         <div
           className="fixed top-20 left-1/2 z-50 px-6 py-3 rounded-lg shadow-2xl animate-fade-in"
@@ -1158,7 +1158,7 @@ export function ExplorationMapScreen() {
           style={{ 
             borderColor: 'rgba(122, 122, 122, 0.3)', 
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            height: '180px',
+            height: '300px',
           }}
         >
           <div 
