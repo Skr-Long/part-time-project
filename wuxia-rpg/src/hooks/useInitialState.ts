@@ -104,7 +104,7 @@ const DEFAULT_LOCATIONS: Location[] = [
         interactions: [
           { type: 'shop', label: '购买装备', description: '查看铁匠铺的商品' },
           { type: 'craft', label: '打造装备', description: '使用材料打造装备' },
-          { type: 'talk', label: '闲聊', description: '与王师傅聊天' },
+          { type: 'talk', label: '闲聊', description: '与王师傅聊天', dialogId: 'village-blacksmith-dialog' },
         ],
       },
       {
@@ -115,7 +115,7 @@ const DEFAULT_LOCATIONS: Location[] = [
         icon: '🥋',
         interactions: [
           { type: 'train', label: '切磋武艺', description: '与馆主切磋，提升技巧' },
-          { type: 'talk', label: '请教武学', description: '请教武学问题' },
+          { type: 'talk', label: '请教武学', description: '请教武学问题', dialogId: 'village-martial-master-dialog' },
         ],
       },
       {
@@ -503,13 +503,22 @@ const DEFAULT_LOCATIONS: Location[] = [
     type: 'special',
     zone: 3,
     connections: ['river-crossing'],
-    locationType: 'encounter',
+    locationType: 'character',
     position: { x: 580, y: 440 },
     encounterPool: ['flower-thief', 'rogue-disciple', 'assassin'],
     encounterChance: 25,
     requirements: {
       minLevel: 8,
       requiredAttributes: { insight: 8 },
+    },
+    character: {
+      id: 'peach-garden-lady',
+      nameCN: '黄姑娘',
+      descriptionCN: '一位精通音律和武学的神秘女子，常年隐居于桃花岛。',
+      interactions: [
+        { type: 'talk', label: '对话', description: '与黄姑娘交谈', dialogId: 'peach-garden-lady-dialog' },
+        { type: 'train', label: '请教武学', description: '向黄姑娘请教桃花岛武学' },
+      ],
     },
     subLocations: [
       {
@@ -519,7 +528,7 @@ const DEFAULT_LOCATIONS: Location[] = [
         descriptionCN: '岛上的一片桃花园，落英缤纷。',
         icon: '🌸',
         interactions: [
-          { type: 'talk', label: '漫步赏花', description: '在桃花园中漫步' },
+          { type: 'talk', label: '漫步赏花', description: '在桃花园中漫步', dialogId: 'peach-garden-lady-dialog' },
         ],
       },
       {
