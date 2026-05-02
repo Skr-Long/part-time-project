@@ -55,9 +55,14 @@ export const DIALOGS: Record<string, Dialog> = {
       {
         id: 'teach',
         speaker: '静心大师',
-        text: '好！施主果然有慧根。老僧这就将《般若掌法》的入门心法传授于你。此掌法刚柔并济，讲究以静制动。记住，武学的最高境界是无招胜有招。',
+        text: '好！施主果然有慧根。老僧这就将《铁布衫》的入门心法传授于你。此乃少林护体内功，练成后防御力大增，寻常兵器难以伤你分毫。',
         options: [
-          { text: '多谢大师！晚辈定当铭记于心。', isEnd: true },
+          { 
+            text: '多谢大师！晚辈定当铭记于心。', 
+            action: 'learn_technique',
+            actionData: 'iron-skin',
+            isEnd: true 
+          },
         ],
       },
       {
@@ -133,18 +138,41 @@ export const DIALOGS: Record<string, Dialog> = {
       {
         id: 'canLearn',
         speaker: '玄慈方丈',
-        text: '施主与我少林有缘，老僧可以传授一些入门心法。《少林长拳》是我少林的基础武学，招式朴实无华，但胜在根基扎实。施主若是学好了，日后学习其他武学也能事半功倍。',
+        text: '施主与我少林有缘，老僧可以传授一些入门心法。《铁布衫》是我少林的护体内功，练成后防御力大增，寻常兵器难以伤你分毫。施主若是学好了，日后学习其他武学也能事半功倍。',
         options: [
-          { text: '请方丈赐教！', isEnd: true },
+          { 
+            text: '请方丈赐教！',
+            action: 'learn_technique',
+            actionData: 'iron-skin',
+            isEnd: true 
+          },
           { text: '晚辈想学习更高深的武学。', nextNodeId: 'advanced' },
         ],
       },
       {
         id: 'advanced',
         speaker: '玄慈方丈',
-        text: '高深武学？施主，武学之道，需循序渐进，切不可好高骛远。《易筋经》、《洗髓经》这些高深武学，非有大机缘、大毅力者不可得。施主还是先从基础学起吧。',
+        text: '高深武学？施主，武学之道，需循序渐进，切不可好高骛远。《易筋经》是我少林的镇寺之宝，非有大机缘、大毅力者不可得。不过...施主若是悟性足够，老僧倒可以破例传授。',
         options: [
+          { 
+            text: '晚辈悟性尚可，请方丈考验！',
+            condition: { type: 'min_attribute', value: 8 },
+            nextNodeId: 'teach-yi-jin'
+          },
           { text: '方丈教训的是，晚辈知错了。', isEnd: true },
+        ],
+      },
+      {
+        id: 'teach-yi-jin',
+        speaker: '玄慈方丈',
+        text: '好！施主果然有慧根。《易筋经》讲究"易筋洗髓"，能将普通人的筋骨改造成先天灵体。练成后内力深厚无比，且生生不息，无论受多重的内伤都能迅速恢复。',
+        options: [
+          { 
+            text: '多谢方丈！晚辈定当用心领悟！',
+            action: 'learn_technique',
+            actionData: 'yi-jin',
+            isEnd: true 
+          },
         ],
       },
       {
@@ -263,18 +291,30 @@ export const DIALOGS: Record<string, Dialog> = {
       {
         id: 'teach',
         speaker: '岳掌门',
-        text: '好，既然少侠有心向学，我就传授你华山剑法的入门心法。「华山基础剑法」是我华山派的根基，共三十六式。别看招式简单，却是千锤百炼的精华。少侠若是练好这套剑法，日后学习更高深的剑法也能事半功倍。',
+        text: '好，既然少侠有心向学，我就传授你华山剑法的入门心法。《独孤九剑》是剑魔独孤求败所创的绝世剑法，以"无招胜有招"为最高境界。此剑法共有九式，练成后，天下任何兵器、任何招式都可破之。',
         options: [
-          { text: '多谢掌门！', isEnd: true },
-          { text: '掌门，我听说「独孤九剑」很厉害...', nextNodeId: 'dugu' },
+          { 
+            text: '请掌门赐教！',
+            action: 'learn_technique',
+            actionData: 'du-gu',
+            isEnd: true 
+          },
+          { text: '掌门，此剑法如此精妙，可有更高深的境界？', nextNodeId: 'dugu' },
         ],
       },
       {
         id: 'dugu',
         speaker: '岳掌门',
-        text: '「独孤九剑」？你从何处听来的？此剑法是剑魔独孤求败所创，招式精妙，号称「无招胜有招」。不过此剑法早已失传，我也只是听闻而已。少侠还是脚踏实地，先练好基础剑法吧。',
+        text: '更高深的境界？独孤九剑的精髓在于"悟"而非"学"。当年令狐冲大侠仅凭此剑法，以一柄木剑败尽天下英雄。此剑法的最高境界是"无招胜有招"，当你真正领悟了这一点，天下便无人能挡。不过这需要极高的悟性...',
         options: [
-          { text: '是，晚辈知道了。', isEnd: true },
+          { 
+            text: '晚辈愿意用心领悟！',
+            condition: { type: 'min_attribute', value: 6 },
+            action: 'learn_technique',
+            actionData: 'du-gu',
+            isEnd: true 
+          },
+          { text: '晚辈明白了，先从基础学起。', isEnd: true },
         ],
       },
       {
@@ -384,9 +424,30 @@ export const DIALOGS: Record<string, Dialog> = {
       {
         id: 'teach',
         speaker: '张真人',
-        text: '好，既然道友有心向学，老道就传你太极的入门心法。记住，太极的精髓在于「圆」。招式要圆，劲力要圆，心法更要圆。圆则活，活则变，变则通。',
+        text: '好，既然道友有心向学，老道就传你太极的入门心法。《虎爪绝户手》是我武当派的狠辣武功，招招攻向敌人要害。此功模仿猛虎扑食之姿，手指弯曲如虎爪，一抓之下可裂金断石。虽然名为"绝户手"，但武当弟子若非万不得已，绝不轻易使用。',
         options: [
-          { text: '多谢真人！晚辈定当用心领悟。', isEnd: true },
+          { 
+            text: '请真人赐教！',
+            action: 'learn_technique',
+            actionData: 'tiger-claw',
+            isEnd: true 
+          },
+          { text: '真人，可还有更高深的武学？', nextNodeId: 'advanced' },
+        ],
+      },
+      {
+        id: 'advanced',
+        speaker: '张真人',
+        text: '更高深的武学？我武当派还有一门《乾坤大挪移》，此功源自明教，但与太极功法有相通之处。此功的核心在于"借力打力"、"四两拨千斤"，能将敌人的攻击原封不动地反弹回去。不过此功极难练成，需要极高的悟性...',
+        options: [
+          { 
+            text: '晚辈愿意用心领悟！',
+            condition: { type: 'min_attribute', value: 7 },
+            action: 'learn_technique',
+            actionData: 'qian-kun',
+            isEnd: true 
+          },
+          { text: '晚辈明白了，先从基础学起。', isEnd: true },
         ],
       },
       {

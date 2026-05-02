@@ -2050,6 +2050,123 @@ export const EVENTS: GameEvent[] = [
     ],
     rewards: { exp: 120, gold: 80 },
   },
+
+  {
+    id: 'gaibang-event',
+    nameCN: '丐帮奇遇',
+    descriptionCN: '你在襄阳城的街头遇到一位衣衫褴褛的乞丐，他虽然看起来落魄，但眼神中却透着一股威严。',
+    type: 'choice',
+    triggerCondition: { type: 'location', locationId: 'city-xiangyang', minVisits: 5 },
+    prerequisiteEvents: ['xiangyang-info-exchange'],
+    isExclusive: true,
+    requirements: {
+      requiredAttributes: { insight: 6, luck: 5 },
+    },
+    choices: [
+      {
+        text: '恭敬地上前问候',
+        cost: {},
+        result: {
+          success: true,
+          message: '乞丐抬起头，深深地看了你一眼：「年轻人，你有礼了。看你面相，是有侠骨之人。我且问你，何为侠？」你沉吟片刻，答道：「侠之大者，为国为民。」乞丐闻言，眼中精光一闪：「好！说得好！既然你有此心，我便传你一套武功。」原来这乞丐竟是丐帮的九袋长老，他将《降龙十八掌》的入门心法传授于你。',
+          effects: [
+            { type: 'learnTechnique', techniqueId: 'dragon-subduing' },
+            { type: 'modifyAttribute', attribute: 'strength', value: 3 },
+            { type: 'modifyAttribute', attribute: 'insight', value: 2 },
+          ],
+          rewards: { exp: 400 },
+        },
+      },
+      {
+        text: '匆匆走过，不予理会',
+        cost: {},
+        result: {
+          success: true,
+          message: '你觉得这个乞丐有些奇怪，决定不多停留，继续赶路。走了一段路后，你回头看了一眼，发现那乞丐已经消失不见了。',
+          effects: [],
+          rewards: { exp: 10 },
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'bian-guan-event',
+    nameCN: '边关军营',
+    descriptionCN: '你在前往洛阳的路上经过一处边关军营，军营门口有士兵把守。',
+    type: 'choice',
+    triggerCondition: { type: 'location', locationId: 'south-road', minVisits: 5 },
+    prerequisiteEvents: [],
+    isExclusive: true,
+    requirements: {
+      requiredAttributes: { strength: 8, physique: 6 },
+    },
+    choices: [
+      {
+        text: '请求进入军营参观',
+        cost: {},
+        result: {
+          success: true,
+          message: '士兵打量了你一番，见你气度不凡，便让你进入了军营。你在军营中看到将士们操练，其中一位老将军正在演练一套枪法。这套枪法大开大合，如天马行空，攻守兼备。老将军看到你在一旁观看，便收枪走了过来：「年轻人，对枪法感兴趣？」你点头称是。老将军微微一笑：「这是老夫家传的杨家枪法，你若是有缘，便拿去练练吧。」',
+          effects: [
+            { type: 'learnTechnique', techniqueId: 'yang-jia' },
+            { type: 'modifyAttribute', attribute: 'strength', value: 3 },
+            { type: 'modifyAttribute', attribute: 'physique', value: 2 },
+          ],
+          rewards: { exp: 350 },
+        },
+      },
+      {
+        text: '觉得军营太过危险，绕道而行',
+        cost: {},
+        result: {
+          success: true,
+          message: '你觉得军营是是非之地，决定绕道而行，继续前往洛阳。',
+          effects: [],
+          rewards: { exp: 10 },
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'taohua-event',
+    nameCN: '桃花岛奇遇',
+    descriptionCN: '你在湖心岛的桃花园中漫步，落英缤纷，美不胜收。忽然，你听到一阵奇怪的声音，似乎有人在自言自语...',
+    type: 'choice',
+    triggerCondition: { type: 'location', locationId: 'river-island', minVisits: 5 },
+    prerequisiteEvents: ['peach-garden-encounter'],
+    isExclusive: true,
+    requirements: {
+      requiredAttributes: { insight: 7, agility: 6 },
+    },
+    choices: [
+      {
+        text: '循声探索',
+        cost: {},
+        result: {
+          success: true,
+          message: '你循声走去，发现一位白发老者正在桃树下左右手各持一根树枝，正在练习一套奇怪的武功。他的左手使一套剑法，右手使一套掌法，两套武功截然不同，却又配合得天衣无缝。老者察觉到你的存在，收招笑道：「有意思！很久没有人能发现我在这里了。你看我这套功夫如何？」你答道：「这套功夫能一心二用，实在精妙。」老者哈哈大笑：「好眼光！这是我自创的左右互搏之术，你若是能一心二用，便学了去吧。」',
+          effects: [
+            { type: 'learnTechnique', techniqueId: 'double-fight' },
+            { type: 'modifyAttribute', attribute: 'agility', value: 3 },
+            { type: 'modifyAttribute', attribute: 'insight', value: 2 },
+          ],
+          rewards: { exp: 450 },
+        },
+      },
+      {
+        text: '感觉是高人，不打扰',
+        cost: {},
+        result: {
+          success: true,
+          message: '你感觉到那老者武功极高，决定不打扰他的清修，悄悄离开了。',
+          effects: [],
+          rewards: { exp: 10 },
+        },
+      },
+    ],
+  },
 ];
 
 export function getEvent(id: string): GameEvent | undefined {
