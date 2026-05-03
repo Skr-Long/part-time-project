@@ -145,15 +145,25 @@ function VictoryScreen() {
               </div>
             </div>
 
-            <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
-              <h3 className="font-bold mb-3" style={{ color: '#1a1a1a' }}>图鉴更新</h3>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-2xl">📖</span>
-                <span style={{ color: '#4a4a4a' }}>
-                  {enemy?.nameCN} 已记录到怪物图鉴
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const monsterEntry = player.monsterBook.find(m => m.enemyId === enemy?.id);
+              const isFirstDefeat = monsterEntry?.defeated === 1;
+              
+              if (isFirstDefeat) {
+                return (
+                  <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
+                    <h3 className="font-bold mb-3" style={{ color: '#1a1a1a' }}>📖 图鉴解锁</h3>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-2xl">🎉</span>
+                      <span style={{ color: '#4a7c59' }}>
+                        首次击败 <span className="font-bold">{enemy?.nameCN}</span>！已记录到怪物图鉴
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </>
         )}
 

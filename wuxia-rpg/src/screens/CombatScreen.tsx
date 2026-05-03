@@ -5,16 +5,29 @@ import { getMartialArt } from '../data/martialArts';
 import { combatService, combatParticipantFromState } from '../services';
 import type { CombatLogEntry, CombatStats, GameAction } from '../types';
 
+type MartialArtCategory = 'internal' | 'external' | 'weapon' | 'special';
+type SkillCategory = MartialArtCategory | 'basic_actions';
+
 interface CombatSkill {
   id: string;
   name: string;
   icon: string;
   speedCost: number;
-  effectType: 'damage' | 'heal';
+  energyCost: number;
+  effectType: 'damage' | 'heal' | 'defense' | 'flee';
   value: number;
   description: string;
-  type: 'internal' | 'external' | 'weapon' | 'special';
+  type: SkillCategory;
+  isActive?: boolean;
 }
+
+const categoryLabels: Record<SkillCategory, { label: string; icon: string; color: string }> = {
+  internal: { label: '内功', icon: '🧘', color: '#8b5cf6' },
+  external: { label: '外功', icon: '👊', color: '#1e40af' },
+  weapon: { label: '兵器', icon: '⚔️', color: '#dc2626' },
+  special: { label: '特殊', icon: '✨', color: '#f59e0b' },
+  basic_actions: { label: '基础', icon: '🎯', color: '#7a7a7a' },
+};
 
 export function CombatScreen() {
   const dispatch = useGameDispatch();
@@ -23,8 +36,9 @@ export function CombatScreen() {
   const combatSpeedMultiplier = useGameSelector(s => s.meta.settings.combatSpeedMultiplier) ?? 1;
 
   const [playerSpeed, setPlayerSpeed] = useState(0);
-  const [enemySpeed, setEnemySpeed] = useState(0);
+  const [_enemySpeed, setEnemySpeed] = useState(0);
   const [isDefending, setIsDefending] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<SkillCategory>('basic_actions');
   const intervalRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(Date.now());
   const logContainerRef = useRef<HTMLDivElement>(null);
@@ -91,6 +105,46 @@ export function CombatScreen() {
     return player.techniqueLevels.find(t => t.techniqueId === techId);
   }, [player.techniqueLevels]);
 
+  const getBasicSkills = useCallback((): CombatSkill[] => {
+    const skills: CombatSkill[] = [
+      {
+        id: 'basic-attack',
+        name: '普通攻击',
+        icon: '⚔️',
+        speedCost: 30,
+        energyCost: 0,
+        effectType: 'damage',
+        value: 0,
+        description: '基础攻击，不消耗内功',
+        type: 'basic_actions',
+      },
+      {
+        id: 'defend',
+        name: isDefending ? '取消防御' : '防御姿态',
+        icon: '🛡️',
+        speedCost: 0,
+        energyCost: 0,
+        effectType: 'defense',
+        value: 0,
+        description: '进入/取消防御状态，防御时减免伤害但速度槽积累减半',
+        type: 'basic_actions',
+        isActive: isDefending,
+      },
+      {
+        id: 'flee',
+        name: '逃跑',
+        icon: '🏃',
+        speedCost: 50,
+        energyCost: 0,
+        effectType: 'flee',
+        value: 0,
+        description: '尝试逃离战斗，有一定概率失败',
+        type: 'basic_actions',
+      },
+    ];
+    return skills;
+  }, [isDefending]);
+
   const getAvailableSkills = useCallback((): CombatSkill[] => {
     const skills: CombatSkill[] = [];
     player.knownTechniques.forEach(techId => {
@@ -98,6 +152,8 @@ export function CombatScreen() {
       if (!tech) return;
       const techLevel = getTechniqueLevel(techId);
       const levelBonus = techLevel ? (techLevel.level - 1) * 2 : 0;
+      
+      const baseEnergyCost = tech.level * 3 + 5;
       
       tech.effects.forEach(effect => {
         if (effect.type === 'damage' || effect.type === 'heal') {
@@ -107,6 +163,7 @@ export function CombatScreen() {
             name: tech.nameCN,
             icon: tech.type === 'internal' ? '🧘' : tech.type === 'external' ? '👊' : tech.type === 'weapon' ? '⚔️' : '✨',
             speedCost: 30 + (tech.level * 5),
+            energyCost: baseEnergyCost,
             effectType: effect.type as 'damage' | 'heal',
             value: baseValue + levelBonus,
             description: tech.lore,
@@ -185,8 +242,33 @@ export function CombatScreen() {
     }
   }, []);
 
-  const executePlayerAction = useCallback((action: { type: 'attack' | 'skill'; skill?: CombatSkill }) => {
+  const executePlayerAction = useCallback((action: { type: 'attack' | 'skill' | 'defend' | 'flee'; skill?: CombatSkill }) => {
     if (!enemy) return;
+
+    if (action.type === 'defend') {
+      if (isDefending) {
+        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: '🛡️ 你收起盾牌！取消了防御姿态！😎' } });
+        setIsDefending(false);
+      } else {
+        setIsDefending(true);
+        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你双掌护胸！进入防御姿态！(防御减免 ${Math.floor(playerBaseStats.defense * 0.5)} 点，速度槽积累减半) 💪` } });
+      }
+      return;
+    }
+
+    if (action.type === 'flee') {
+      const fleeResult = combatService.attemptFlee(0.6);
+      dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: fleeResult.logEntry.text } });
+      
+      if (fleeResult.success) {
+        setTimeout(() => {
+          dispatch({ type: 'END_COMBAT', payload: { victory: false } });
+        }, 500);
+      } else {
+        resetPlayerSpeed();
+      }
+      return;
+    }
 
     const enemyStats = combatService.computeEnemyCombatStats(enemy);
     const enemyCombatStats: CombatStats = {
@@ -198,14 +280,26 @@ export function CombatScreen() {
     if (action.type === 'skill' && action.skill && action.skill.effectType === 'heal') {
       const skill = action.skill;
       const healAmount = skill.value;
-      dispatch({ 
-        type: 'EXECUTE_COMBAT_ACTION', 
-        payload: { 
-          action: `${skill.icon} 你双手合十，气运丹田！施展「${skill.name}」！恢复 ${healAmount} 点气血！✨ 感觉好多了！`, 
-          isHeal: true,
-          healAmount 
-        } 
-      });
+      
+      if (skill.energyCost > 0) {
+        dispatch({
+          type: 'EXECUTE_COMBAT_ACTION',
+          payload: {
+            action: `${skill.icon} 你双手合十，气运丹田！消耗 ${skill.energyCost} 点内功，施展「${skill.name}」！恢复 ${healAmount} 点气血！✨ 感觉好多了！`,
+            isHeal: true,
+            healAmount
+          }
+        });
+      } else {
+        dispatch({
+          type: 'EXECUTE_COMBAT_ACTION',
+          payload: {
+            action: `${skill.icon} 你双手合十，气运丹田！施展「${skill.name}」！恢复 ${healAmount} 点气血！✨ 感觉好多了！`,
+            isHeal: true,
+            healAmount
+          }
+        });
+      }
       resetPlayerSpeed();
       return;
     }
@@ -234,14 +328,27 @@ export function CombatScreen() {
 
     if (action.type === 'skill' && action.skill) {
       const critText = damageResult.isCritical ? ' 💥 暴击! 石破天惊!' : '';
-      dispatch({ 
-        type: 'EXECUTE_COMBAT_ACTION', 
-        payload: { 
-          action: `${action.skill.icon} 你大喝一声！施展「${action.skill.name}」！造成 ${damageResult.damage} 点伤害${critText}！💪`, 
-          damage: damageResult.damage,
-          isCrit: damageResult.isCritical
-        } 
-      });
+      const skill = action.skill;
+      
+      if (skill.energyCost > 0) {
+        dispatch({ 
+          type: 'EXECUTE_COMBAT_ACTION', 
+          payload: { 
+            action: `${skill.icon} 你大喝一声！消耗 ${skill.energyCost} 点内功，施展「${skill.name}」！造成 ${damageResult.damage} 点伤害${critText}！💪`, 
+            damage: damageResult.damage,
+            isCrit: damageResult.isCritical
+          } 
+        });
+      } else {
+        dispatch({ 
+          type: 'EXECUTE_COMBAT_ACTION', 
+          payload: { 
+            action: `${skill.icon} 你大喝一声！施展「${skill.name}」！造成 ${damageResult.damage} 点伤害${critText}！💪`, 
+            damage: damageResult.damage,
+            isCrit: damageResult.isCritical
+          } 
+        });
+      }
     } else {
       const critText = damageResult.isCritical ? ' 💥 暴击! 致命一击!' : '';
       dispatch({ 
@@ -255,7 +362,7 @@ export function CombatScreen() {
     }
 
     resetPlayerSpeed();
-  }, [enemy, enemyCurrentHP, playerBaseStats, player.combatStats.currentHP, player.combatStats.currentEnergy, dispatch, resetPlayerSpeed]);
+  }, [enemy, enemyCurrentHP, playerBaseStats, player.combatStats.currentHP, player.combatStats.currentEnergy, dispatch, resetPlayerSpeed, isDefending]);
 
   useEffect(() => {
     if (!enemy) return;
@@ -306,45 +413,44 @@ export function CombatScreen() {
     };
   }, [enemy, playerBaseStats.speed, combatSpeedMultiplier, executeEnemyAttackInternal]);
 
-  const canAct = playerSpeed >= 100;
   const availableSkills = getAvailableSkills();
+  const basicSkills = getBasicSkills();
 
-  const handleAction = (type: 'attack' | 'skill' | 'defend', skill?: CombatSkill) => {
-    if (type === 'defend') {
-      if (isDefending) {
-        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: '🛡️ 你收起盾牌！取消了防御姿态！😎' } });
-        setIsDefending(false);
-      } else {
-        setIsDefending(true);
-        dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: `🛡️ 你双掌护胸！进入防御姿态！(防御减免 ${Math.floor(playerBaseStats.defense * 0.5)} 点，速度槽积累减半) 💪` } });
-      }
-      return;
+  const availableCategories = useMemo(() => {
+    const categories = new Set<SkillCategory>(['basic_actions']);
+    availableSkills.forEach(skill => {
+      categories.add(skill.type as SkillCategory);
+    });
+    return Array.from(categories);
+  }, [availableSkills]);
+
+  const currentCategorySkills = useMemo(() => {
+    if (selectedCategory === 'basic_actions') {
+      return basicSkills;
     }
+    return availableSkills.filter(skill => skill.type === selectedCategory);
+  }, [selectedCategory, basicSkills, availableSkills]);
 
-    if (!canAct) return;
+  const canUseSkill = useCallback((skill: CombatSkill): boolean => {
+    if (skill.effectType === 'defense') {
+      return true;
+    }
+    const hasEnoughSpeed = playerSpeed >= skill.speedCost;
+    const hasEnoughEnergy = player.combatStats.currentEnergy >= skill.energyCost;
+    return hasEnoughSpeed && hasEnoughEnergy;
+  }, [playerSpeed, player.combatStats.currentEnergy]);
 
-    if (type === 'attack') {
+  const handleSkillClick = (skill: CombatSkill) => {
+    if (!canUseSkill(skill)) return;
+
+    if (skill.effectType === 'defense') {
+      executePlayerAction({ type: 'defend', skill });
+    } else if (skill.effectType === 'flee') {
+      executePlayerAction({ type: 'flee', skill });
+    } else if (skill.id === 'basic-attack') {
       executePlayerAction({ type: 'attack' });
-      return;
-    }
-
-    if (type === 'skill' && skill) {
-      executePlayerAction({ type: 'skill', skill });
-    }
-  };
-
-  const handleFlee = () => {
-    if (!canAct) return;
-    
-    const fleeResult = combatService.attemptFlee(0.6);
-    dispatch({ type: 'EXECUTE_COMBAT_ACTION', payload: { action: fleeResult.logEntry.text } });
-    
-    if (fleeResult.success) {
-      setTimeout(() => {
-        dispatch({ type: 'END_COMBAT', payload: { victory: false } });
-      }, 500);
     } else {
-      resetPlayerSpeed();
+      executePlayerAction({ type: 'skill', skill });
     }
   };
 
@@ -378,7 +484,6 @@ export function CombatScreen() {
 
     let textParts: React.ReactNode[] = [];
     
-    // 处理数值 - 找到所有数字并高亮显示
     const numberRegex = /(\d+)/g;
     let match;
     let lastIndex = 0;
@@ -392,7 +497,6 @@ export function CombatScreen() {
         );
       }
       
-      // 判断这个数字是否是伤害/治疗数值
       const isValueNumber = (isDamage || isHeal) && parseInt(match[1]) === Math.abs(entry.value);
       
       textParts.push(
@@ -427,6 +531,50 @@ export function CombatScreen() {
         {textParts.length > 0 ? textParts : entry.text}
       </p>
     );
+  };
+
+  const getSkillButtonStyle = (skill: CombatSkill) => {
+    const canUse = canUseSkill(skill);
+    const categoryInfo = categoryLabels[skill.type];
+    const isActive = skill.isActive;
+
+    if (isActive) {
+      return {
+        backgroundColor: `${categoryInfo.color}`,
+        borderColor: categoryInfo.color,
+        color: '#ffffff',
+        opacity: 1,
+        boxShadow: `0 0 16px ${categoryInfo.color}`,
+        transform: 'scale(1.05)',
+        cursor: 'pointer' as const,
+      };
+    }
+
+    if (!canUse) {
+      return {
+        backgroundColor: 'rgba(200, 200, 200, 0.1)',
+        borderColor: '#d1d5db',
+        color: '#9ca3af',
+        opacity: 0.5,
+        boxShadow: 'none',
+        transform: 'scale(1)',
+        cursor: 'not-allowed' as const,
+      };
+    }
+
+    const isHeal = skill.effectType === 'heal';
+    const bgColor = isHeal ? 'rgba(22, 163, 74, 0.15)' : `${categoryInfo.color}20`;
+    const textColor = isHeal ? '#16a34a' : categoryInfo.color;
+
+    return {
+      backgroundColor: bgColor,
+      borderColor: textColor,
+      color: textColor,
+      opacity: 1,
+      boxShadow: `0 0 12px ${textColor}40`,
+      transform: 'scale(1.02)',
+      cursor: 'pointer' as const,
+    };
   };
 
   return (
@@ -516,40 +664,6 @@ export function CombatScreen() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto mb-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-3 bg-white/80 rounded-lg shadow">
-            <div className="flex justify-between text-sm mb-1">
-              <span style={{ color: '#7a7a7a' }}>{enemy.nameCN}速度</span>
-              <span className="font-bold" style={{ color: '#8b0000' }}>{Math.round(enemySpeed)}%</span>
-            </div>
-            <div className="h-4 rounded-full overflow-hidden" style={{ backgroundColor: '#e5e7eb' }}>
-              <div className="h-full transition-all duration-100" style={{ width: `${enemySpeed}%`, backgroundColor: '#8b0000' }} />
-            </div>
-          </div>
-          <div className="p-3 bg-white/80 rounded-lg shadow">
-            <div className="flex justify-between text-sm mb-1">
-              <span style={{ color: '#7a7a7a' }}>你的速度</span>
-              <span className="font-bold" style={{ color: '#1e40af' }}>{Math.round(playerSpeed)}%</span>
-            </div>
-            <div className="h-4 rounded-full overflow-hidden" style={{ backgroundColor: '#e5e7eb' }}>
-              <div 
-                className="h-full transition-all duration-100" 
-                style={{ 
-                  width: `${playerSpeed}%`, 
-                  backgroundColor: isDefending ? '#f59e0b' : '#1e40af' 
-                }} 
-              />
-            </div>
-            {isDefending && (
-              <div className="text-xs mt-1" style={{ color: '#f59e0b' }}>
-                ⚠️ 防御中：速度槽积累速率减半
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       <div 
         className="max-w-6xl mx-auto mb-4 p-4 bg-white/80 rounded-lg shadow" 
         style={{ borderWidth: '1px', borderColor: '#d1d5db' }}
@@ -564,45 +678,71 @@ export function CombatScreen() {
       </div>
 
       <div className="max-w-6xl mx-auto mb-4">
-        <h3 className="font-bold mb-2" style={{ color: '#1a1a1a' }}>武学技能</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold" style={{ color: '#1a1a1a' }}>武学技能</h3>
+          <div className="text-sm" style={{ color: '#7a7a7a' }}>
+            内功: <span className="font-bold" style={{ color: '#8b5cf6' }}>{playerEnergy}</span> / {playerMaxEnergy}
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 mb-4">
+          {availableCategories.map((cat) => {
+            const categoryInfo = categoryLabels[cat];
+            const isSelected = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className="px-4 py-2 rounded-lg border-2 transition-all text-sm"
+                style={{
+                  backgroundColor: isSelected ? categoryInfo.color : 'transparent',
+                  borderColor: categoryInfo.color,
+                  color: isSelected ? '#ffffff' : categoryInfo.color,
+                  boxShadow: isSelected ? `0 0 12px ${categoryInfo.color}40` : 'none',
+                }}
+              >
+                <span className="mr-1">{categoryInfo.icon}</span>
+                {categoryInfo.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap gap-2">
-          {availableSkills.length === 0 ? (
-            <span className="text-sm px-3 py-2 rounded" style={{ backgroundColor: 'rgba(122, 122, 122, 0.1)', color: '#7a7a7a' }}>暂无已学技能</span>
+          {currentCategorySkills.length === 0 ? (
+            <span className="text-sm px-3 py-2 rounded" style={{ backgroundColor: 'rgba(122, 122, 122, 0.1)', color: '#7a7a7a' }}>暂无技能</span>
           ) : (
-            availableSkills.map(skill => {
-              const canUse = playerSpeed >= skill.speedCost;
-              const isHeal = skill.effectType === 'heal';
+            currentCategorySkills.map(skill => {
+              const canUse = canUseSkill(skill);
               const baseTechId = skill.id.split('-')[0];
               const techLevel = getTechniqueLevel(baseTechId);
+              const style = getSkillButtonStyle(skill);
               
               return (
                 <button
                   key={skill.id}
-                  onClick={() => handleAction('skill', skill)}
-                  disabled={!canUse}
-                  className="px-3 py-2 rounded-lg border-2 transition-all"
-                  style={{
-                    backgroundColor: canUse 
-                      ? (isHeal ? 'rgba(22, 163, 74, 0.15)' : (skill.type === 'internal' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(30, 64, 175, 0.15)')) 
-                      : 'rgba(122, 122, 122, 0.1)',
-                    borderColor: canUse 
-                      ? (isHeal ? '#16a34a' : (skill.type === 'internal' ? '#8b5cf6' : '#1e40af')) 
-                      : '#d1d5db',
-                    color: canUse 
-                      ? (isHeal ? '#16a34a' : (skill.type === 'internal' ? '#8b5cf6' : '#1e40af')) 
-                      : '#9ca3af',
-                    opacity: canUse ? 1 : 0.6,
-                    boxShadow: canUse ? `0 0 8px ${isHeal ? 'rgba(22, 163, 74, 0.4)' : (skill.type === 'internal' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(30, 64, 175, 0.4)')}` : 'none',
-                    transform: canUse ? 'scale(1.02)' : 'scale(1)',
-                  }}
+                  onClick={() => handleSkillClick(skill)}
+                  disabled={!canUse && skill.effectType !== 'defense'}
+                  className="px-4 py-3 rounded-lg border-2 transition-all flex flex-col items-center min-w-24"
+                  style={style}
+                  title={skill.description}
                 >
-                  <span className="text-lg mr-1">{skill.icon}</span>
-                  <span className="font-serif font-medium">{skill.name}</span>
-                  {techLevel && techLevel.level > 1 && (
-                    <span className="text-xs ml-1" style={{ color: '#f59e0b' }}>Lv.{techLevel.level}</span>
-                  )}
-                  <span className="text-xs ml-1">({skill.speedCost}速)</span>
-                  {isHeal && <span className="text-xs ml-1" style={{ color: '#16a34a' }}>💚</span>}
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-lg">{skill.icon}</span>
+                    <span className="font-serif font-medium">{skill.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {techLevel && techLevel.level > 1 && (
+                      <span style={{ color: style.color, opacity: 0.8 }}>Lv.{techLevel.level}</span>
+                    )}
+                    {skill.energyCost > 0 && (
+                      <span style={{ color: style.color, opacity: 0.8 }}>💧{skill.energyCost}</span>
+                    )}
+                    {skill.effectType === 'heal' && <span>💚</span>}
+                    {!canUse && skill.effectType !== 'defense' && (
+                      <span style={{ color: '#f59e0b' }}>⚡</span>
+                    )}
+                  </div>
                 </button>
               );
             })
@@ -610,53 +750,9 @@ export function CombatScreen() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto mb-4">
-        <div className="flex flex-wrap gap-3 justify-center">
-          <button
-            onClick={() => handleAction('attack')}
-            disabled={!canAct}
-            className="px-8 py-4 rounded-lg transition-all text-lg font-serif shadow"
-            style={{
-              backgroundColor: canAct ? '#1a1a1a' : '#9ca3af',
-              color: '#f5f0e6',
-              opacity: canAct ? 1 : 0.6,
-              boxShadow: canAct ? '0 4px 12px rgba(26, 26, 26, 0.3)' : 'none',
-            }}
-          >
-            ⚔️ 普通攻击
-          </button>
-          <button
-            onClick={() => handleAction('defend')}
-            className="px-8 py-4 rounded-lg border-2 transition-all text-lg font-serif shadow"
-            style={{
-              borderColor: '#16a34a',
-              color: '#16a34a',
-              backgroundColor: isDefending ? 'rgba(22, 163, 74, 0.3)' : 'rgba(22, 163, 74, 0.1)',
-              boxShadow: isDefending ? '0 0 12px rgba(22, 163, 74, 0.5)' : '0 4px 12px rgba(22, 163, 74, 0.2)',
-              transform: isDefending ? 'scale(1.05)' : 'scale(1)',
-            }}
-          >
-            {isDefending ? '🛡️ 取消防御' : '🛡️ 防御'}
-          </button>
-          <button
-            onClick={handleFlee}
-            disabled={!canAct}
-            className="px-8 py-4 rounded-lg border-2 transition-all text-lg font-serif shadow"
-            style={{
-              borderColor: canAct ? '#7a7a7a' : '#d1d5db',
-              color: canAct ? '#7a7a7a' : '#9ca3af',
-              backgroundColor: 'transparent',
-              opacity: canAct ? 1 : 0.6,
-            }}
-          >
-            🏃 逃跑
-          </button>
-        </div>
-      </div>
-
       <div className="max-w-6xl mx-auto">
         <div className="p-3 bg-white/60 rounded-lg text-sm" style={{ color: '#7a7a7a' }}>
-          <p>💡 提示：防御可随时切换，无需等待速度条。防御期间速度槽积累减半，但受到伤害时额外减免 <span className="font-bold" style={{ color: '#16a34a' }}>根骨 × 0.5</span> 点伤害。</p>
+          <p>💡 提示：防御可随时切换，无需等待速度槽。防御期间速度槽积累减半，但受到伤害时额外减免 <span className="font-bold" style={{ color: '#16a34a' }}>根骨 × 0.5</span> 点伤害。使用武学需要消耗内功，请合理分配内功使用。</p>
         </div>
       </div>
     </div>

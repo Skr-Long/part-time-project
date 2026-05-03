@@ -6,7 +6,8 @@ import { HPBar } from '../components/ui/HPBar';
 import { CurrencyDisplay } from '../components/ui/CurrencyDisplay';
 import { getScaledEnemy } from '../data/enemies';
 import { getEventsByLocation } from '../data/events';
-import type { Location, SubLocation, CharacterInteraction, EventRequirements, ExploreLogType } from '../types';
+import { getAvailableMartialArts } from '../data/martialArts';
+import type { Location, SubLocation, CharacterInteraction, EventRequirements, ExploreLogType, Attributes, MartialArt } from '../types';
 import type { EventRewardModalData } from '../components/ui/EventRewardModal';
 
 function getLogIcon(type: ExploreLogType): string {
@@ -185,6 +186,148 @@ export function ExplorationMapScreen() {
     }
     
     return { canAccess: true, reason: '' };
+  };
+
+  const handleMartialTraining = () => {
+    if (!currentLocation) return;
+
+    const locationName = currentLocation.nameCN;
+    const subLocName = selectedSubLocation?.nameCN || '';
+    const fullLocationName = subLocName ? `${subLocName}（${locationName}）` : locationName;
+
+    dispatch({
+      type: 'ADD_EXPLORE_LOG',
+      payload: {
+        type: 'info',
+        message: `在「${fullLocationName}」开始武学交流...`,
+        locationId: currentLocation.id,
+      },
+    });
+
+    const baseExp = 20;
+    const zoneBonus = (currentLocation.zone || 1) * 5;
+    const totalExp = baseExp + zoneBonus;
+    dispatch({ type: 'ADD_EXP', payload: { amount: totalExp } });
+
+    const attrNames: Record<keyof Attributes, string> = {
+      insight: '悟性',
+      constitution: '体质',
+      strength: '力量',
+      agility: '敏捷',
+      physique: '根骨',
+      luck: '福缘',
+    };
+
+    const attrTypes: (keyof Attributes)[] = ['insight', 'constitution', 'strength', 'agility', 'physique', 'luck'];
+    const numAttrs = Math.random() < 0.3 ? 2 : 1;
+    const attributeGains: { attr: keyof Attributes; value: number }[] = [];
+
+    const usedAttrs = new Set<keyof Attributes>();
+    for (let i = 0; i < numAttrs; i++) {
+      let attr: keyof Attributes;
+      do {
+        attr = attrTypes[Math.floor(Math.random() * attrTypes.length)];
+      } while (usedAttrs.has(attr));
+      usedAttrs.add(attr);
+
+      const attrValue = player.attributes[attr];
+      const gainChance = Math.min(0.6, 0.2 + (attrValue / 20) * 0.2);
+      
+      if (Math.random() < gainChance) {
+        const gain = Math.random() < 0.2 ? 2 : 1;
+        attributeGains.push({ attr, value: gain });
+        dispatch({
+          type: 'UPDATE_ATTRIBUTE',
+          payload: {
+            attribute: attr,
+            value: player.attributes[attr] + gain
+          }
+        });
+      }
+    }
+
+    if (attributeGains.length > 0) {
+      const gainMessages = attributeGains.map(g => `${attrNames[g.attr]} +${g.value}`).join('，');
+      showNotification(`💪 武学精进！${gainMessages}`);
+      dispatch({
+        type: 'ADD_EXPLORE_LOG',
+        payload: {
+          type: 'reward',
+          message: `💪 武学精进！${gainMessages}`,
+          locationId: currentLocation.id,
+        },
+      });
+    }
+
+    const insight = player.attributes.insight;
+    const physique = player.attributes.physique;
+    const luck = player.attributes.luck;
+    
+    const baseLearnChance = (insight * 2 + physique * 1 + (luck + 5) * 2) / 50;
+    const learnChance = Math.min(0.4, Math.max(0.05, baseLearnChance));
+
+    if (Math.random() < learnChance) {
+      const availableArts = getAvailableMartialArts(
+        insight,
+        player.knownTechniques,
+        player.completedEvents,
+        player.gold
+      );
+
+      if (availableArts.length > 0) {
+        const threshold = (insight + physique) / 2;
+        let eligibleArts: MartialArt[];
+        
+        if (threshold >= 8) {
+          eligibleArts = availableArts.filter(a => a.insightRequired >= 5);
+          if (eligibleArts.length === 0) eligibleArts = availableArts;
+        } else if (threshold >= 5) {
+          eligibleArts = availableArts.filter(a => a.insightRequired >= 3 && a.insightRequired < 7);
+          if (eligibleArts.length === 0) eligibleArts = availableArts;
+        } else {
+          eligibleArts = availableArts.filter(a => a.insightRequired < 4);
+          if (eligibleArts.length === 0) eligibleArts = availableArts;
+        }
+
+        if (eligibleArts.length > 0) {
+          const learnedArt = eligibleArts[Math.floor(Math.random() * eligibleArts.length)];
+          
+          dispatch({ type: 'LEARN_TECHNIQUE', payload: { techniqueId: learnedArt.id } });
+          
+          const typeLabels: Record<string, string> = {
+            internal: '内功',
+            external: '外功',
+            weapon: '兵器',
+            special: '特殊',
+          };
+          
+          const message = `✨ 福至心灵！在与他人的交流中领悟了「${learnedArt.nameCN}」（${typeLabels[learnedArt.type] || '武学'}）！`;
+          
+          showNotification(message);
+          dispatch({
+            type: 'ADD_EXPLORE_LOG',
+            payload: {
+              type: 'reward',
+              message,
+              locationId: currentLocation.id,
+            },
+          });
+
+          dispatch({
+            type: 'ADD_EXPLORE_LOG',
+            payload: {
+              type: 'reward',
+              message: `📜 武学详情：需要悟性 ${learnedArt.insightRequired}，等级 ${learnedArt.level}`,
+              locationId: currentLocation.id,
+            },
+          });
+        }
+      }
+    }
+
+    if (attributeGains.length === 0) {
+      showNotification(`切磋完毕，获得 ${totalExp} 点经验`);
+    }
   };
 
   const handleExplore = () => {
@@ -484,8 +627,7 @@ export function ExplorationMapScreen() {
         showNotification(`与${currentLocation?.character?.nameCN || 'NPC'}交谈中...`);
         break;
       case 'train':
-        showNotification('开始切磋武艺...');
-        dispatch({ type: 'ADD_EXP', payload: { amount: 10 } });
+        handleMartialTraining();
         break;
       case 'heal':
         if (player.gold >= 20) {
