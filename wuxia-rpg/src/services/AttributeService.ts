@@ -69,48 +69,38 @@ export class AttributeService {
 
   generateRandomAttributes(): Attributes {
     const attributes: Attributes = {
-      insight: 5,
-      constitution: 5,
-      strength: 5,
-      agility: 5,
-      physique: 5,
-      luck: 5,
+      insight: 1,
+      constitution: 1,
+      strength: 1,
+      agility: 1,
+      physique: 1,
+      luck: 1,
     };
 
     const keys = Object.keys(attributes) as (keyof Attributes)[];
+    
+    let pointsToDistribute = TOTAL_ATTRIBUTE_POINTS - 6;
 
     for (const key of keys) {
-      const info = this.getAttributeInfo(key);
-      if (!info) continue;
-
-      const minPoints = Math.max(info.min, 1);
-      const maxAdditional = info.max - minPoints;
-      const randomAdd = Math.floor(Math.random() * (maxAdditional + 1));
-
-      attributes[key] = minPoints + randomAdd;
+      attributes[key] += 2;
+      pointsToDistribute -= 2;
     }
-
-    let pointsToDistribute = TOTAL_ATTRIBUTE_POINTS - Object.values(attributes).reduce((a, b) => a + b, 0);
 
     while (pointsToDistribute > 0) {
-      const randomKey = keys[Math.floor(Math.random() * keys.length)];
-      const info = this.getAttributeInfo(randomKey);
-      if (!info) continue;
-
-      if (attributes[randomKey] < info.max) {
-        attributes[randomKey]++;
-        pointsToDistribute--;
-      }
-    }
-
-    while (pointsToDistribute < 0) {
-      const randomKey = keys[Math.floor(Math.random() * keys.length)];
-      const info = this.getAttributeInfo(randomKey);
-      if (!info) continue;
-
-      if (attributes[randomKey] > info.min) {
-        attributes[randomKey]--;
-        pointsToDistribute++;
+      const shuffledKeys = [...keys].sort(() => Math.random() - 0.5);
+      
+      for (const key of shuffledKeys) {
+        if (pointsToDistribute <= 0) break;
+        
+        const info = this.getAttributeInfo(key);
+        if (!info) continue;
+        
+        const maxAdd = Math.min(info.max - attributes[key], pointsToDistribute);
+        if (maxAdd <= 0) continue;
+        
+        const addAmount = Math.min(Math.floor(Math.random() * 3) + 1, maxAdd);
+        attributes[key] += addAmount;
+        pointsToDistribute -= addAmount;
       }
     }
 
