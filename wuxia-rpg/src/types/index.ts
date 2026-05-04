@@ -618,7 +618,7 @@ export type GameAction =
   | { type: 'EXECUTE_COMBAT_ACTION'; payload: { action: string; damage?: number; isHeal?: boolean; healAmount?: number; isCrit?: boolean } }
   | { type: 'END_COMBAT'; payload: { victory: boolean; rewards?: CombatRewards } }
   | { type: 'USE_ITEM'; payload: { itemId: string } }
-  | { type: 'EQUIP_ITEM'; payload: { itemId: string } }
+  | { type: 'EQUIP_ITEM'; payload: { itemId: string; uniqueId?: string } }
   | { type: 'UNEQUIP_ITEM'; payload: { slot: keyof EquipmentSlots } }
   | { type: 'UNEQUIP_ALL_ITEMS' }
   | { type: 'DROP_ITEM'; payload: { itemId: string; quantity?: number } }
@@ -643,4 +643,7 @@ export type GameAction =
   | { type: 'UPDATE_SETTINGS'; payload: Partial<MetaState['settings']> }
   | { type: 'CRAFT_ITEM'; payload: { recipeId: string } }
   | { type: 'PURCHASE_ITEM'; payload: { itemId: string; price: number } }
-  | { type: 'ALLOCATE_ATTRIBUTE_POINT'; payload: { attribute: keyof Attributes } };
+  | { type: 'ALLOCATE_ATTRIBUTE_POINT'; payload: { attribute: keyof Attributes } }
+  | { type: 'DECOMPOSE_ITEM'; payload: { itemId: string; uniqueId?: string } }
+  | { type: 'DECOMPOSE_ITEMS'; payload: { items: { itemId: string; uniqueId?: string }[] } }
+  | { type: 'SELL_ITEMS'; payload: { items: { itemId: string; uniqueId?: string }[] } };

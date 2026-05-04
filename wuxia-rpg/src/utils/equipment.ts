@@ -1,6 +1,6 @@
 import type { EquipmentItem, Attributes, CraftResult, CraftRecipe, ItemEffects, EquipmentSpecialEffect } from '../types';
 import { EQUIPMENT_RARITY_INFO } from '../types';
-import { getEquipment, getCraftRecipe, SPECIAL_EFFECTS } from '../data/items';
+import { getEquipment, getCraftRecipe, SPECIAL_EFFECTS, getCraftRecipeByBaseItemId, getItem } from '../data/items';
 
 export function checkEquipmentRequirements(
   equipment: EquipmentItem,
@@ -331,4 +331,60 @@ export function formatItemEffects(effects: ItemEffects): string[] {
   }
 
   return parts;
+}
+
+export interface DecomposeResult {
+  success: boolean;
+  message: string;
+  materials?: { itemId: string; quantity: number }[];
+  gold?: number;
+}
+
+export function decomposeItem(item: EquipmentItem): DecomposeResult {
+  const recipe = getCraftRecipeByBaseItemId(item.id);
+  
+  const refundRate: Record<string, number> = {
+    common: 0.5,
+    uncommon: 0.55,
+    rare: 0.6,
+    epic: 0.65,
+    legendary: 0.7,
+  };
+  
+  const rate = refundRate[item.rarity] || 0.5;
+  
+  const materials: { itemId: string; quantity: number }[] = [];
+  
+  if (recipe && recipe.materials.length > 0) {
+    for (const mat of recipe.materials) {
+      const refundedQuantity = Math.max(1, Math.floor(mat.quantity * rate));
+      materials.push({ itemId: mat.itemId, quantity: refundedQuantity });
+    }
+  } else {
+    const defaultMaterials: Record<string, string> = {
+      weapon: 'iron-ore',
+      armor: 'steel-ingot',
+      accessory: 'jade-stone',
+    };
+    const defaultMat = defaultMaterials[item.type] || 'iron-ore';
+    const baseQuantity = {
+      common: 1,
+      uncommon: 2,
+      rare: 3,
+      epic: 4,
+      legendary: 5,
+    }[item.rarity] || 1;
+    materials.push({ itemId: defaultMat, quantity: baseQuantity });
+  }
+  
+  const matNames = materials.map(m => {
+    const matItem = getItem(m.itemId);
+    return `${matItem?.nameCN || m.itemId} x${m.quantity}`;
+  }).join('、');
+  
+  return {
+    success: true,
+    message: `分解了${item.nameCN}，获得：${matNames}`,
+    materials,
+  };
 }

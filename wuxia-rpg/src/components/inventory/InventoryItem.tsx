@@ -25,13 +25,16 @@ const ITEM_TYPE_LABELS: Record<InventoryItemType['type'], string> = {
 
 interface InventoryItemProps {
   item: InventoryItemType;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }
 
 function isEquippable(item: InventoryItemType): item is EquipmentItem {
   return item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory';
 }
 
-export default function InventoryItem({ item }: InventoryItemProps) {
+export default function InventoryItem({ item, selectionMode = false, isSelected = false, onSelect }: InventoryItemProps) {
   const dispatch = useGameDispatch();
   const equipment = useGameSelector(state => state.player.equipment);
   const playerLevel = useGameSelector(state => state.player.level);
@@ -46,7 +49,14 @@ export default function InventoryItem({ item }: InventoryItemProps) {
   const equipmentItem = equipItem ? getEquipment(item.id) : null;
   
   const slot = equipItem ? (equipItem.type as 'weapon' | 'armor' | 'accessory') : null;
-  const isCurrentlyEquipped = slot && equipment[slot]?.id === item.id;
+  
+  function isSameEquipment(a: EquipmentItem | null, b: EquipmentItem | null): boolean {
+    if (!a || !b) return false;
+    if (a.uniqueId && b.uniqueId) return a.uniqueId === b.uniqueId;
+    return a.id === b.id;
+  }
+  
+  const isCurrentlyEquipped = slot && isSameEquipment(equipment[slot], equipItem);
   
   const equipCheck = equipItem && equipmentItem 
     ? checkEquipmentRequirements(equipmentItem, playerLevel, playerAttributes, knownTechniques)
@@ -54,7 +64,11 @@ export default function InventoryItem({ item }: InventoryItemProps) {
 
   const handleEquip = () => {
     if (!equipItem) return;
-    dispatch({ type: 'EQUIP_ITEM', payload: { itemId: item.id } });
+    const equipPayload: { itemId: string; uniqueId?: string } = { itemId: item.id };
+    if (equipItem.uniqueId) {
+      equipPayload.uniqueId = equipItem.uniqueId;
+    }
+    dispatch({ type: 'EQUIP_ITEM', payload: equipPayload });
   };
 
   const handleUnequip = () => {
@@ -64,6 +78,15 @@ export default function InventoryItem({ item }: InventoryItemProps) {
 
   const handleUse = () => {
     dispatch({ type: 'USE_ITEM', payload: { itemId: item.id } });
+  };
+
+  const handleDecompose = () => {
+    if (!equipItem || isCurrentlyEquipped) return;
+    const decomposePayload: { itemId: string; uniqueId?: string } = { itemId: item.id };
+    if (equipItem.uniqueId) {
+      decomposePayload.uniqueId = equipItem.uniqueId;
+    }
+    dispatch({ type: 'DECOMPOSE_ITEM', payload: decomposePayload });
   };
 
   const getRarityColor = (equip?: EquipmentItem) => {
@@ -92,14 +115,27 @@ export default function InventoryItem({ item }: InventoryItemProps) {
     <div
       className="flex flex-col gap-2 p-3 rounded border"
       style={{
-        backgroundColor: isHovered ? 'rgba(232, 224, 208, 0.8)' : 'rgba(232, 224, 208, 0.5)',
-        borderColor: isCurrentlyEquipped ? 'rgba(74, 124, 89, 0.5)' : 'rgba(122, 122, 122, 0.2)',
-        borderWidth: isCurrentlyEquipped ? '2px' : '1px',
+        backgroundColor: isSelected 
+          ? 'rgba(74, 124, 89, 0.15)' 
+          : isHovered ? 'rgba(232, 224, 208, 0.8)' : 'rgba(232, 224, 208, 0.5)',
+        borderColor: isSelected 
+          ? 'rgba(74, 124, 89, 0.6)' 
+          : isCurrentlyEquipped ? 'rgba(74, 124, 89, 0.5)' : 'rgba(122, 122, 122, 0.2)',
+        borderWidth: isSelected || isCurrentlyEquipped ? '2px' : '1px',
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex items-center gap-3">
+        {selectionMode && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onSelect}
+            className="w-5 h-5 cursor-pointer"
+            style={{ accentColor: '#4a7c59' }}
+          />
+        )}
         <span className="text-2xl">{ITEM_TYPE_ICONS[item.type]}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -179,6 +215,25 @@ export default function InventoryItem({ item }: InventoryItemProps) {
               title={!equipCheck.canEquip ? equipCheck.failedRequirements.join('、') : undefined}
             >
               {equipCheck.canEquip ? '穿戴' : '条件不足'}
+            </button>
+          )}
+          {equipItem && !isCurrentlyEquipped && !selectionMode && (
+            <button
+              onClick={handleDecompose}
+              className="px-3 py-1 text-sm rounded border transition-colors"
+              style={{
+                backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                color: '#dc2626',
+                borderColor: 'rgba(220, 38, 38, 0.3)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.1)';
+              }}
+            >
+              分解
             </button>
           )}
           {isConsumable && (

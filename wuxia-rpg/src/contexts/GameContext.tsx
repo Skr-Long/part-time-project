@@ -4,7 +4,7 @@ import { getInitialGameState, DEFAULT_LOCATIONS } from '../hooks/useInitialState
 import { calculateCombatStats } from '../utils/combat';
 import { getSkillExpBonusMultiplier } from '../utils/attributes';
 import { saveGame } from '../hooks/useSaveLoad';
-import { checkEquipmentRequirements, craftItem } from '../utils/equipment';
+import { checkEquipmentRequirements, craftItem, generateUniqueId, decomposeItem } from '../utils/equipment';
 import { getEquipment, getItem, getCraftRecipe } from '../data/items';
 
 interface GameContextValue {
@@ -13,6 +13,17 @@ interface GameContextValue {
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
+
+function findItemIndex(
+  inventory: GameState['player']['inventory'],
+  itemId: string,
+  uniqueId?: string
+): number {
+  if (uniqueId) {
+    return inventory.findIndex(i => (i as EquipmentItem).uniqueId === uniqueId);
+  }
+  return inventory.findIndex(i => i.id === itemId);
+}
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
@@ -264,7 +275,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'EQUIP_ITEM': {
-      const itemIndex = state.player.inventory.findIndex(i => i.id === action.payload.itemId);
+      let itemIndex: number;
+      if (action.payload.uniqueId) {
+        itemIndex = state.player.inventory.findIndex(
+          i => (i as EquipmentItem).uniqueId === action.payload.uniqueId
+        );
+      } else {
+        itemIndex = state.player.inventory.findIndex(i => i.id === action.payload.itemId);
+      }
+      
       if (itemIndex === -1) return state;
       const item = state.player.inventory[itemIndex] as EquipmentItem;
       if (!['weapon', 'armor', 'accessory'].includes(item.type)) return state;
@@ -291,10 +310,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       const slot = item.type as 'weapon' | 'armor' | 'accessory';
       const currentEquipped = state.player.equipment[slot];
-      const newInventory = state.player.inventory.filter(i => i.id !== action.payload.itemId);
+      
+      const newInventory = [...state.player.inventory];
+      newInventory.splice(itemIndex, 1);
+      
       if (currentEquipped) {
         newInventory.push(currentEquipped);
       }
+      
       const newEquipment = { ...state.player.equipment, [slot]: item };
       return {
         ...state,
@@ -475,7 +498,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'GAIN_ITEM': {
-      const newItem = action.payload.item;
+      const newItem = { ...action.payload.item };
+      const isEquipment = ['weapon', 'armor', 'accessory'].includes(newItem.type);
+      const equipItem = newItem as EquipmentItem;
+      if (isEquipment && !equipItem.uniqueId) {
+        equipItem.uniqueId = generateUniqueId();
+      }
+      
       const existIndex = state.player.inventory.findIndex(i => i.id === newItem.id && i.stackable);
       if (existIndex !== -1 && newItem.stackable) {
         const newInventory = [...state.player.inventory];
@@ -497,6 +526,154 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         newInventory.splice(itemIndex, 1);
       }
       return { ...state, player: { ...state.player, inventory: newInventory } };
+    }
+
+    case 'DECOMPOSE_ITEM': {
+      const itemIndex = findItemIndex(
+        state.player.inventory,
+        action.payload.itemId,
+        action.payload.uniqueId
+      );
+      if (itemIndex === -1) return state;
+      
+      const item = state.player.inventory[itemIndex] as EquipmentItem;
+      if (!['weapon', 'armor', 'accessory'].includes(item.type)) {
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            notifications: [...state.ui.notifications, `${item.nameCN} 不是装备，无法分解`],
+          },
+        };
+      }
+
+      const result = decomposeItem(item);
+      if (!result.success || !result.materials) {
+        return {
+          ...state,
+          ui: { ...state.ui, notifications: [...state.ui.notifications, result.message] },
+        };
+      }
+
+      let newInventory = [...state.player.inventory];
+      newInventory.splice(itemIndex, 1);
+
+      for (const mat of result.materials) {
+        const matItem = getItem(mat.itemId);
+        if (matItem) {
+          const existIndex = newInventory.findIndex(i => i.id === mat.itemId && i.stackable);
+          if (existIndex !== -1) {
+            newInventory[existIndex] = {
+              ...newInventory[existIndex],
+              quantity: newInventory[existIndex].quantity + mat.quantity,
+            };
+          } else {
+            newInventory.push({ ...matItem, quantity: mat.quantity });
+          }
+        }
+      }
+
+      return {
+        ...state,
+        player: { ...state.player, inventory: newInventory },
+        ui: { ...state.ui, notifications: [...state.ui.notifications, result.message] },
+      };
+    }
+
+    case 'DECOMPOSE_ITEMS': {
+      const itemsToDecompose = action.payload.items;
+      let newInventory = [...state.player.inventory];
+      const notifications: string[] = [];
+      const materialsToAdd: { itemId: string; quantity: number }[] = [];
+
+      for (const toDecompose of itemsToDecompose) {
+        const itemIndex = findItemIndex(newInventory, toDecompose.itemId, toDecompose.uniqueId);
+        if (itemIndex === -1) continue;
+
+        const item = newInventory[itemIndex] as EquipmentItem;
+        if (!['weapon', 'armor', 'accessory'].includes(item.type)) continue;
+
+        const result = decomposeItem(item);
+        if (result.success && result.materials) {
+          newInventory.splice(itemIndex, 1);
+          notifications.push(result.message);
+          for (const mat of result.materials) {
+            materialsToAdd.push(mat);
+          }
+        }
+      }
+
+      for (const mat of materialsToAdd) {
+        const matItem = getItem(mat.itemId);
+        if (matItem) {
+          const existIndex = newInventory.findIndex(i => i.id === mat.itemId && i.stackable);
+          if (existIndex !== -1) {
+            newInventory[existIndex] = {
+              ...newInventory[existIndex],
+              quantity: newInventory[existIndex].quantity + mat.quantity,
+            };
+          } else {
+            newInventory.push({ ...matItem, quantity: mat.quantity });
+          }
+        }
+      }
+
+      return {
+        ...state,
+        player: { ...state.player, inventory: newInventory },
+        ui: { ...state.ui, notifications: [...state.ui.notifications, ...notifications] },
+      };
+    }
+
+    case 'SELL_ITEMS': {
+      const itemsToSell = action.payload.items;
+      let newInventory = [...state.player.inventory];
+      let totalGold = 0;
+      const soldItemNames: string[] = [];
+
+      for (const toSell of itemsToSell) {
+        const itemIndex = findItemIndex(newInventory, toSell.itemId, toSell.uniqueId);
+        if (itemIndex === -1) continue;
+
+        const item = newInventory[itemIndex];
+        const isEquippable = ['weapon', 'armor', 'accessory'].includes(item.type);
+        if (isEquippable) {
+          const equipItem = item as EquipmentItem;
+          const slot = equipItem.type as 'weapon' | 'armor' | 'accessory';
+          const equipped = state.player.equipment[slot];
+          if (equipped) {
+            const sameEquip = equipped.uniqueId
+              ? equipped.uniqueId === equipItem.uniqueId
+              : equipped.id === equipItem.id;
+            if (sameEquip) continue;
+          }
+        }
+
+        const sellPrice = item.value || 0;
+        if (sellPrice > 0) {
+          totalGold += sellPrice;
+          soldItemNames.push(item.nameCN);
+          newInventory.splice(itemIndex, 1);
+        }
+      }
+
+      if (totalGold === 0) return state;
+
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          gold: state.player.gold + totalGold,
+          inventory: newInventory,
+        },
+        ui: {
+          ...state.ui,
+          notifications: [
+            ...state.ui.notifications,
+            `出售了 ${soldItemNames.length} 件物品，获得 ${totalGold} 铜`,
+          ],
+        },
+      };
     }
 
     case 'COMPLETE_EVENT': {
@@ -724,6 +901,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       const newItem = { ...item, quantity: 1 };
+      const isEquipment = ['weapon', 'armor', 'accessory'].includes(newItem.type);
+      if (isEquipment) {
+        (newItem as EquipmentItem).uniqueId = generateUniqueId();
+      }
+      
       const existIndex = state.player.inventory.findIndex(i => i.id === newItem.id && i.stackable);
 
       let newInventory;

@@ -81,6 +81,17 @@ function isEquippable(item: InventoryItemType): item is EquipmentItem {
   return item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory';
 }
 
+function isSameEquipment(a: EquipmentItem | null, b: EquipmentItem | null): boolean {
+  if (!a || !b) return false;
+  if (a.uniqueId && b.uniqueId) return a.uniqueId === b.uniqueId;
+  return a.id === b.id;
+}
+
+function getEquipmentItemKey(item: EquipmentItem, index: number): string {
+  if (item.uniqueId) return item.uniqueId;
+  return `${item.id}-${index}`;
+}
+
 function calculateStatsWithEquipment(
   baseStats: ReturnType<typeof calculateBaseCombatStats>,
   equipment: EquipmentSlots,
@@ -272,7 +283,11 @@ export default function CharacterPanel() {
   };
 
   const handleEquip = (item: EquipmentItem) => {
-    dispatch({ type: 'EQUIP_ITEM', payload: { itemId: item.id } });
+    const payload: { itemId: string; uniqueId?: string } = { itemId: item.id };
+    if (item.uniqueId) {
+      payload.uniqueId = item.uniqueId;
+    }
+    dispatch({ type: 'EQUIP_ITEM', payload });
     setPreviewItem(null);
   };
 
@@ -748,16 +763,17 @@ export default function CharacterPanel() {
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredItems.map(item => {
+                {filteredItems.map((item, index) => {
                   const equipCheck = getEquipCheck(item);
                   const slot = item.type as 'weapon' | 'armor' | 'accessory';
-                  const isCurrentlyEquipped = player.equipment[slot]?.id === item.id;
-                  const isPreviewing = previewItem?.id === item.id;
-                  const isExpanded = expandedItem === item.id;
+                  const isCurrentlyEquipped = isSameEquipment(player.equipment[slot], item);
+                  const isPreviewing = isSameEquipment(previewItem, item);
+                  const itemKey = getEquipmentItemKey(item, index);
+                  const isExpanded = expandedItem === itemKey;
 
                   return (
                     <div
-                      key={item.id}
+                      key={itemKey}
                       className="flex flex-col gap-2 p-3 rounded border cursor-pointer transition-colors"
                       style={{
                         backgroundColor: isPreviewing ? 'rgba(74, 124, 89, 0.1)' : 'rgba(255, 255, 255, 0.5)',
@@ -803,7 +819,7 @@ export default function CharacterPanel() {
                               style={{ color: '#4a7c59' }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setExpandedItem(isExpanded ? null : item.id);
+                                setExpandedItem(isExpanded ? null : itemKey);
                               }}
                             >
                               {isExpanded ? '收起详情' : '查看详情'}

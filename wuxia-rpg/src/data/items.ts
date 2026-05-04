@@ -647,3 +647,7 @@ export function getCraftRecipesByLevel(playerLevel: number, blacksmithLevel: num
     r.requiredLevel <= playerLevel && r.requiredBlacksmithLevel <= blacksmithLevel
   );
 }
+
+export function getCraftRecipeByBaseItemId(baseItemId: string): CraftRecipe | undefined {
+  return CRAFT_RECIPES.find(r => r.baseItemId === baseItemId);
+}

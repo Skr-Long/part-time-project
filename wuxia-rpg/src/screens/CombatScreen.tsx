@@ -693,6 +693,7 @@ export function CombatScreen() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
+                onMouseEnter={() => setSelectedCategory(cat)}
                 className="px-4 py-2 rounded-lg border-2 transition-all text-sm"
                 style={{
                   backgroundColor: isSelected ? categoryInfo.color : 'transparent',
